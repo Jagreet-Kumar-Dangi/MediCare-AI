@@ -1,6 +1,7 @@
 import {
   Activity,
   ArrowUpRight,
+  Bell,
   CalendarDays,
   CircleUserRound,
   FileHeart,
@@ -20,6 +21,7 @@ const navigation = [
   { label: 'My profile', to: '/profile', icon: CircleUserRound },
   { label: 'Medical records', to: '/medical-records', icon: FileHeart },
   { label: 'Appointments', to: '/appointments', icon: CalendarDays },
+  { label: 'Notifications', to: '/notifications', icon: Bell },
 ]
 
 export function PatientLayout() {
@@ -36,6 +38,8 @@ export function PatientLayout() {
         ? 'Medical records'
         : location.pathname === '/appointments'
           ? 'My appointments'
+          : location.pathname === '/notifications'
+            ? 'Notifications'
         : 'Patient overview'
 
   async function handleSignOut() {

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import require_role
 from app.core.appointments import AppointmentAuditAction, AppointmentStatus
 from app.core.config import settings
+from app.core.notifications import NotificationType
 from app.db.session import get_db
 from app.models import (
     Appointment,
@@ -34,6 +35,9 @@ from app.services.appointment_service import (
     slot_is_conflicted,
     to_utc,
     utc_now,
+)
+from app.services.notification_service import (
+    create_appointment_event_notifications,
 )
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
@@ -104,24 +108,37 @@ def _record_event(
     previous_end: datetime | None = None,
     new_start: datetime | None = None,
     new_end: datetime | None = None,
-) -> None:
-    db.add(
-        AppointmentAuditEvent(
-            appointment=appointment,
-            actor_user_id=actor.id,
-            action=action.value,
-            reason=reason,
-            previous_start=previous_start,
-            previous_end=previous_end,
-            new_start=new_start,
-            new_end=new_end,
-            created_at=utc_now(),
-        )
+) -> AppointmentAuditEvent:
+    event = AppointmentAuditEvent(
+        appointment=appointment,
+        actor_user_id=actor.id,
+        action=action.value,
+        reason=reason,
+        previous_start=previous_start,
+        previous_end=previous_end,
+        new_start=new_start,
+        new_end=new_end,
+        created_at=utc_now(),
     )
+    db.add(event)
+    return event
 
 
-def _commit_booking(db: Session) -> None:
+def _commit_booking(
+    db: Session,
+    *,
+    appointment: Appointment,
+    event: AppointmentAuditEvent,
+    notification_type: NotificationType,
+) -> None:
     try:
+        db.flush()
+        create_appointment_event_notifications(
+            db,
+            appointment=appointment,
+            notification_type=notification_type,
+            event_id=event.id,
+        )
         db.flush()
         db.commit()
     except IntegrityError as error:
@@ -197,7 +214,7 @@ def create_appointment(
         patient_notes=payload.patient_notes,
     )
     db.add(appointment)
-    _record_event(
+    event = _record_event(
         db,
         appointment=appointment,
         actor=current_patient,
@@ -205,7 +222,12 @@ def create_appointment(
         new_start=slot.scheduled_start,
         new_end=slot.scheduled_end,
     )
-    _commit_booking(db)
+    _commit_booking(
+        db,
+        appointment=appointment,
+        event=event,
+        notification_type=NotificationType.APPOINTMENT_BOOKED,
+    )
     return appointment_payload(load_appointment(db, appointment.id), view="patient")
 
 
@@ -322,7 +344,7 @@ def reschedule_appointment(
     if appointment.status == AppointmentStatus.CONFIRMED.value:
         appointment.status = AppointmentStatus.BOOKED.value
     appointment.updated_at = now
-    _record_event(
+    event = _record_event(
         db,
         appointment=appointment,
         actor=current_patient,
@@ -333,7 +355,12 @@ def reschedule_appointment(
         new_start=slot.scheduled_start,
         new_end=slot.scheduled_end,
     )
-    _commit_booking(db)
+    _commit_booking(
+        db,
+        appointment=appointment,
+        event=event,
+        notification_type=NotificationType.APPOINTMENT_RESCHEDULED,
+    )
     return appointment_payload(load_appointment(db, appointment.id), view="patient")
 
 
@@ -368,12 +395,19 @@ def cancel_appointment(
     appointment.status = AppointmentStatus.CANCELLED.value
     appointment.cancellation_reason = payload.reason
     appointment.updated_at = now
-    _record_event(
+    event = _record_event(
         db,
         appointment=appointment,
         actor=current_patient,
         action=AppointmentAuditAction.CANCELLED,
         reason=payload.reason,
+    )
+    db.flush()
+    create_appointment_event_notifications(
+        db,
+        appointment=appointment,
+        notification_type=NotificationType.APPOINTMENT_CANCELLED,
+        event_id=event.id,
     )
     db.commit()
     return appointment_payload(load_appointment(db, appointment.id), view="patient")

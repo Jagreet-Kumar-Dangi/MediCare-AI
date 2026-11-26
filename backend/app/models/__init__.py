@@ -15,6 +15,7 @@ from app.models.doctor_credential import (
     DoctorCredentialReviewEvent,
 )
 from app.models.medical_record import MedicalRecord, MedicalRecordCategory
+from app.models.notification import Notification, NotificationJob, NotificationPreference
 from app.models.patient_profile import PatientProfile
 from app.models.revoked_token import RevokedToken
 from app.models.user import User, UserRole
@@ -32,6 +33,9 @@ __all__ = [
     "DoctorVerificationStatus",
     "MedicalRecord",
     "MedicalRecordCategory",
+    "Notification",
+    "NotificationJob",
+    "NotificationPreference",
     "PatientProfile",
     "RevokedToken",
     "User",

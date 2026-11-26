@@ -87,6 +87,7 @@ class DoctorProfile(Base):
             "verification_status",
             "created_at",
         ),
+        Index("ix_doctor_profiles_created_at", "created_at"),
         UniqueConstraint("user_id", name="uq_doctor_profiles_user_id"),
         UniqueConstraint(
             "medical_registration_number",
@@ -193,6 +194,7 @@ class DoctorVerificationEvent(Base):
             f"action IN ({_VERIFICATION_ACTION_VALUES})",
             name="ck_doctor_verification_events_action",
         ),
+        Index("ix_doctor_verification_events_created_at", "created_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

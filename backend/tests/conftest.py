@@ -20,6 +20,9 @@ from app.models import (
     DoctorProfile,
     DoctorVerificationEvent,
     MedicalRecord,
+    Notification,
+    NotificationJob,
+    NotificationPreference,
     PatientProfile,
     RevokedToken,
     User,
@@ -48,6 +51,9 @@ def test_engine() -> Generator[Engine, None, None]:
             DoctorVerificationEvent,
             RevokedToken,
             MedicalRecord,
+            Notification,
+            NotificationJob,
+            NotificationPreference,
         )
     }
     Base.metadata.create_all(engine)

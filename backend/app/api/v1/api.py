@@ -1,7 +1,9 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    admin_analytics,
     admin_doctor_credentials,
+    admin_notifications,
     admin_appointments,
     admin_doctors,
     appointments,
@@ -12,6 +14,7 @@ from app.api.v1.endpoints import (
     doctors,
     health,
     medical_records,
+    notifications,
     patients,
 )
 
@@ -26,5 +29,8 @@ api_router.include_router(doctor_availability.router)
 api_router.include_router(appointments.router)
 api_router.include_router(doctor_appointments.router)
 api_router.include_router(admin_appointments.router)
+api_router.include_router(notifications.router)
+api_router.include_router(admin_notifications.router)
+api_router.include_router(admin_analytics.router)
 api_router.include_router(patients.router)
 api_router.include_router(medical_records.router)

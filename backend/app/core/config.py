@@ -1,7 +1,14 @@
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import (
+    AnyHttpUrl,
+    EmailStr,
+    Field,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.doctor_credentials import DoctorCredentialType
@@ -38,6 +45,33 @@ class Settings(BaseSettings):
     patient_appointment_rescheduling_cutoff_hours: int = Field(
         default=24, ge=0, le=720
     )
+    appointment_reminder_24h_minutes: int = Field(default=1440, gt=0, le=10080)
+    appointment_reminder_1h_minutes: int = Field(default=60, gt=0, le=10080)
+    notification_worker_poll_seconds: int = Field(default=5, ge=1, le=300)
+    notification_max_attempts: int = Field(default=5, ge=1, le=10)
+    notification_retry_base_seconds: int = Field(default=60, ge=1, le=3600)
+    notification_retry_max_seconds: int = Field(default=21600, ge=1, le=86400)
+    smtp_host: str | None = None
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_from_email: EmailStr | None = None
+    smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
+    frontend_base_url: AnyHttpUrl | None = None
+
+    @model_validator(mode="after")
+    def validate_notification_settings(self) -> "Settings":
+        if self.smtp_use_tls and self.smtp_use_ssl:
+            raise ValueError("SMTP_USE_TLS and SMTP_USE_SSL cannot both be enabled.")
+        if bool(self.smtp_username) != bool(self.smtp_password):
+            raise ValueError("SMTP_USERNAME and SMTP_PASSWORD must be configured together.")
+        if self.notification_retry_base_seconds > self.notification_retry_max_seconds:
+            raise ValueError(
+                "NOTIFICATION_RETRY_BASE_SECONDS cannot exceed "
+                "NOTIFICATION_RETRY_MAX_SECONDS."
+            )
+        return self
 
     @field_validator("jwt_secret_key")
     @classmethod
@@ -68,6 +102,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[2] / ".env",
         env_file_encoding="utf-8",
+        env_ignore_empty=True,
         extra="ignore",
     )
 

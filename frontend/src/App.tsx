@@ -29,6 +29,16 @@ const AdminAppointmentsPage = lazy(() =>
     default: module.AdminAppointmentsPage,
   })),
 )
+const AdminNotificationsPage = lazy(() =>
+  import('./pages/AdminNotificationsPage').then((module) => ({
+    default: module.AdminNotificationsPage,
+  })),
+)
+const AdminAnalyticsPage = lazy(() =>
+  import('./pages/AdminAnalyticsPage').then((module) => ({
+    default: module.AdminAnalyticsPage,
+  })),
+)
 const DoctorDashboardPage = lazy(() =>
   import('./pages/DoctorDashboardPage').then((module) => ({
     default: module.DoctorDashboardPage,
@@ -70,6 +80,11 @@ const PatientAppointmentsPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import('./pages/NotFoundPage').then((module) => ({
     default: module.NotFoundPage,
+  })),
+)
+const NotificationsPage = lazy(() =>
+  import('./pages/NotificationsPage').then((module) => ({
+    default: module.NotificationsPage,
   })),
 )
 const ProfilePage = lazy(() =>
@@ -114,6 +129,7 @@ function App() {
                 element={<MedicalRecordsPage />}
               />
               <Route path="/appointments" element={<PatientAppointmentsPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
             </Route>
             <Route
               element={
@@ -123,6 +139,10 @@ function App() {
               }
             >
               <Route path="/doctor/dashboard" element={<DoctorDashboardPage />} />
+              <Route
+                path="/doctor/notifications"
+                element={<NotificationsPage />}
+              />
             </Route>
             <Route
               element={
@@ -140,6 +160,15 @@ function App() {
                 path="/admin/appointments"
                 element={<AdminAppointmentsPage />}
               />
+              <Route
+                path="/admin/notifications"
+                element={<NotificationsPage />}
+              />
+              <Route
+                path="/admin/notification-jobs"
+                element={<AdminNotificationsPage />}
+              />
+              <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
             </Route>
             <Route path="/app" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<NotFoundPage />} />

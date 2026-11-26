@@ -1,6 +1,8 @@
 import {
   ClipboardCheck,
   CalendarClock,
+  Activity,
+  Bell,
   FileCheck2,
   LayoutDashboard,
   LogOut,
@@ -21,6 +23,7 @@ interface StaffLayoutProps {
 const staffNavigation = {
   DOCTOR: [
     { label: 'Doctor workspace', to: '/doctor/dashboard', icon: LayoutDashboard },
+    { label: 'Notifications', to: '/doctor/notifications', icon: Bell },
   ],
   ADMIN: [
     { label: 'Doctor verification', to: '/admin/doctors', icon: ClipboardCheck },
@@ -33,6 +36,21 @@ const staffNavigation = {
       label: 'Appointment overview',
       to: '/admin/appointments',
       icon: CalendarClock,
+    },
+    {
+      label: 'Notifications',
+      to: '/admin/notifications',
+      icon: Bell,
+    },
+    {
+      label: 'Notification jobs',
+      to: '/admin/notification-jobs',
+      icon: CalendarClock,
+    },
+    {
+      label: 'Analytics',
+      to: '/admin/analytics',
+      icon: Activity,
     },
   ],
 } satisfies Record<
@@ -60,6 +78,12 @@ export function StaffLayout({ role }: StaffLayoutProps) {
         ? 'Credential verification'
         : location.pathname === '/admin/appointments'
           ? 'Appointment overview'
+            : location.pathname === '/admin/notification-jobs'
+              ? 'Notification jobs'
+              : location.pathname === '/admin/notifications'
+                ? 'Notifications'
+                : location.pathname === '/admin/analytics'
+                  ? 'Analytics'
           : 'Doctor verification'
 
   async function handleSignOut() {

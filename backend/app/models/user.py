@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum as SqlEnum
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum as SqlEnum, Index
 from sqlalchemy import String, UniqueConstraint, func, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,6 +25,7 @@ class User(Base):
     __table_args__ = (
         UniqueConstraint("email", name="uq_users_email"),
         CheckConstraint("email = lower(email)", name="ck_users_email_lowercase"),
+        Index("ix_users_created_at", "created_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

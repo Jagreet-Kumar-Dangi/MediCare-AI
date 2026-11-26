@@ -3,11 +3,23 @@
 ## Current phase
 
 Backend foundations, authentication, patient profiles, Phase 4 private local
-medical-record management, Phase 5A doctor verification/discovery, and Phase
-5B private doctor credential submission/review are implemented. Phase 5C
-appointment availability, booking, and role-based management are implemented;
-PostgreSQL migration/concurrency verification is tracked separately and must
-pass before claiming production-ready scheduling.
+medical-record management, Phase 5A doctor verification/discovery, Phase 5B
+private doctor credential submission/review, and Phase 5C appointment
+scheduling are implemented. Phase 6 adds appointment notifications,
+preferences, reminders, an SMTP outbox worker, and admin job monitoring.
+Revisions `20261126_0005` and `20261126_0006` are applied and Alembic-checked
+on the configured local PostgreSQL database. The Phase 6 worker-claim
+concurrency path was exercised there with synthetic data. SMTP was mocked;
+no live provider was used. Repeat migration and worker-concurrency validation
+against each deployment database; local verification is not a production
+readiness or compliance assessment.
+
+Phase 7 adds admin-only SQL aggregate analytics, `Asia/Kolkata` reporting
+windows, paginated doctor operations data, and aggregate-only CSV exports.
+Its additive analytics-index migration is `20261127_0007`; validate it against
+the configured PostgreSQL database before considering the phase ready for live
+verification. Analytics do not expose patient medical records, credential
+files, or notification contents.
 
 ## Workspace facts
 
@@ -18,8 +30,10 @@ pass before claiming production-ready scheduling.
 - Alembic revision `20261126_0003` adds doctor profiles and verification audit
   events. Revision `20261126_0004` adds private doctor credentials and review
   events. Revision `20261126_0005` adds availability, appointments, audit
-  events, and the PostgreSQL GiST overlap constraint. Do not rewrite earlier
-  migration files.
+  events, and the PostgreSQL GiST overlap constraint. Revision
+  `20261126_0006` adds notifications, user preferences, and the email/reminder
+  job outbox. Revision `20261127_0007` adds timestamp indexes for reporting
+  aggregations. Do not rewrite earlier migration files.
 - Frontend: `frontend/`, React + TypeScript + Vite, Tailwind CSS, React Router,
   Axios, Lucide, and Recharts.
 - `mobile/`, `ml/`, `infrastructure/`, and `docs/` remain reserved for future
@@ -35,13 +49,15 @@ pass before claiming production-ready scheduling.
   dependency.
 - `backend/app/models/` — user, patient profile, medical record, revoked
   token, doctor profile, doctor credential, availability, appointment, and
-  review/audit entities.
+  review/audit entities, notifications, preferences, and outbox jobs.
 - `backend/app/schemas/` — validated request and public response models.
 - `backend/app/api/v1/endpoints/` — health, authentication, patient,
-  medical-record, doctor-discovery, doctor-credential, and admin review routes.
+  medical-record, doctor-discovery, doctor-credential, admin review, and
+  administrator analytics routes.
 - `backend/app/services/` — authentication, appointment slot calculations,
   and shared private-file storage validation with separate medical-record
-  and doctor-credential directories.
+  and doctor-credential directories; notification rendering, scheduling, and
+  worker processing.
 - `backend/migrations/` — Alembic environment and versioned schema migrations.
 - `backend/tests/` — API and security tests.
 - `frontend/src/api/` — typed API client and endpoint functions.
@@ -51,7 +67,7 @@ pass before claiming production-ready scheduling.
 - `frontend/src/pages/` — landing, patient and doctor registration, login,
   patient profile, records and appointments, doctor directory/status and
   scheduling, admin verification and appointment inspection, and not-found
-  pages.
+  pages. `/admin/analytics` is the protected administrator analytics workspace.
 
 Run commands from `backend/` unless otherwise specified:
 
@@ -63,7 +79,12 @@ Run frontend commands from `frontend/`:
 
 - Start Vite: `npm run dev`
 - Type-check: `npm run typecheck`
+- Lint: `npm run lint`
 - Build: `npm run build`
+
+The backend README contains a manual PostgreSQL plus private-upload backup and
+restore procedure. It has not been validated as a production disaster-recovery
+plan; conduct and document a restore drill before deployment.
 
 ## Authentication and authorization invariants
 
@@ -125,6 +146,20 @@ Run frontend commands from `frontend/`:
   `PATIENT_APPOINTMENT_CANCELLATION_CUTOFF_HOURS` and
   `PATIENT_APPOINTMENT_RESCHEDULING_CUTOFF_HOURS`. A rescheduled confirmed
   booking returns to `BOOKED` and requires doctor confirmation.
+- Appointment lifecycle changes write in-app notifications and durable
+  notification jobs in the same database transaction. Users manage their
+  notification and reminder preferences at `/api/v1/notifications`; admins
+  inspect masked delivery job metadata at `/api/v1/admin/notifications/jobs`.
+  The worker runs separately with
+  `python -m app.services.notification_worker` from `backend/`.
+- Reminder email requires `SMTP_HOST`, `SMTP_FROM_EMAIL`, and, if used, a
+  matching SMTP username/password pair. TLS and SSL modes are mutually
+  exclusive. Jobs are polled from PostgreSQL with leases, bounded retries, and
+  idempotency keys; SMTP delivery is at-least-once if a worker crashes after
+  the remote server accepts a message but before the database commit. Messages
+  omit visit reasons, notes, medical records, and credential files. Events
+  created before SMTP is configured are retained as skipped jobs and are not
+  replayed automatically.
 - Active booking overlaps are rejected transactionally by the PostgreSQL
   exclusion constraint in revision `20261126_0005` (requires `btree_gist`).
   SQLite API tests cover sequential conflicts, not PostgreSQL concurrency.
@@ -132,6 +167,14 @@ Run frontend commands from `frontend/`:
   profile, an active user, and approved medical registration and degree
   certificates. `REQUIRED_DOCTOR_CREDENTIAL_TYPES` can configure the required
   credential set. Public doctor responses never include credential metadata.
+- Analytics reporting periods are evaluated in `Asia/Kolkata`; API date ranges
+  are inclusive local dates converted into half-open UTC database bounds.
+  Percent changes compare the immediately preceding equivalent period and are
+  unavailable when its count is zero. Appointment booking trends use
+  appointment creation time; cancellation and completion trends use audited
+  event time. Performance appointment totals use booking creation time, while
+  upcoming counts include all currently booked or confirmed future appointments.
+  CSV files contain date/status/count aggregates and escape formula-like cells.
 - This local-storage phase has no antivirus scanning, application-level
   encryption at rest, production backup strategy, or compliance assessment.
   Do not claim HIPAA, GDPR, or other certification.
@@ -214,11 +257,21 @@ Run frontend commands from `frontend/`:
 - `PUT /api/v1/doctor/appointments/{appointment_id}/notes`
 - `GET /api/v1/admin/appointments`
 - `GET /api/v1/admin/appointments/{appointment_id}`
+- `GET /api/v1/notifications`
+- `GET /api/v1/notifications/unread-count`
+- `PATCH /api/v1/notifications/{notification_id}/read`
+- `PATCH /api/v1/notifications/read-all`
+- `DELETE /api/v1/notifications/{notification_id}`
+- `GET /api/v1/notifications/preferences`
+- `PUT /api/v1/notifications/preferences`
+- `GET /api/v1/admin/notifications/jobs`
 
 ## Known follow-up work
 
-Before production, apply and verify migration `20261126_0005` on PostgreSQL,
-run the concurrent booking check with independent database sessions, add rate
-limiting, account verification and recovery workflows, expired-revocation
-cleanup, deployment secret management, and an operational security review.
-These follow-ups are not represented as completed by local SQLite tests.
+Run a concurrent worker-claim check with independent sessions against each
+target PostgreSQL database. Also add rate limiting, account verification and
+recovery workflows, expired-revocation cleanup, deployment secret management,
+a tested backup/restore plan, and an independent operational security review.
+SMTP is optional and has not been validated against a live provider. Local
+SQLite tests and the configured development PostgreSQL checks do not provide
+production or regulatory assurance.

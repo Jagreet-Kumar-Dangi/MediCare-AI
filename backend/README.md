@@ -3,8 +3,9 @@
 The backend provides the FastAPI foundation, authentication, PostgreSQL
 persistence, patient profiles, private local medical-record management, doctor
 verification and discovery, and private doctor credential submission/review.
-The backend also provides appointment scheduling and management. AI features
-are not implemented.
+The backend also provides appointment scheduling and management,
+transactionally persisted appointment notifications, reminders, optional SMTP
+delivery, and admin job monitoring. AI features are not implemented.
 
 ## Requirements
 
@@ -17,6 +18,7 @@ are not implemented.
 From the `backend` directory:
 
 ```powershell
+py -3.13 -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
@@ -46,22 +48,91 @@ verification audit trail are added by `20261126_0003`; doctor credential
 documents and review history are added by `20261126_0004`; doctor availability
 and appointments are added by `20261126_0005`. PostgreSQL migrations enable
 `btree_gist` for the appointment overlap exclusion constraint when necessary.
+Revision `20261126_0006` adds notifications, user preferences, and durable
+email/reminder jobs.
+Revision `20261127_0007` adds timestamp indexes used by analytics date-range
+aggregates; it does not add tables or alter existing data. The analytics
+service uses the existing transactional tables rather than a separate
+warehouse. To revert only these indexes, downgrade to
+`20261126_0006`; upgrading to `head` recreates them.
 The extension is intentionally retained on downgrade. To roll back only the
-appointment revision:
+notification revision while retaining appointments:
 
 ```powershell
-python -m alembic downgrade 20261126_0004
+python -m alembic downgrade 20261126_0005
 ```
 
-Rolling back revision `20261126_0005` removes availability and appointment
-tables and their records; back up required scheduling data before downgrading.
-Earlier migrations are additive and must not be rewritten.
+This removes notification tables and their data. Rolling back further to
+`20261126_0004` also removes availability and appointment tables and their
+records; back up required data before downgrading. Earlier migrations are
+additive and must not be rewritten.
 
 To create a migration after changing models:
 
 ```powershell
 python -m alembic revision --autogenerate -m "describe the schema change"
 ```
+
+## Manual backup and restore
+
+The application has no automated backup service. For local recovery, back up
+the PostgreSQL database and both private upload directories together. Pause
+application writes while taking the database and file copies so their contents
+remain consistent. The dump and copied files contain sensitive account and
+health-related data: store them outside this repository, restrict access, and
+protect the backup destination with appropriate encryption and retention.
+
+The following Windows PowerShell example uses the default local database and
+storage paths. Configure `PGHOST`, `PGPORT`, `PGDATABASE`, and `PGUSER` for the
+database in `DATABASE_URL`; allow `pg_dump` to prompt for the password or use a
+protected PostgreSQL password file. Do not put database passwords in commands
+or commit backup files.
+
+```powershell
+$backup = Join-Path $env:USERPROFILE ("medicare-ai-backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+New-Item -ItemType Directory -Path $backup | Out-Null
+$env:PGHOST = "localhost"
+$env:PGPORT = "5432"
+$env:PGDATABASE = "medicare_ai"
+$env:PGUSER = "medicare_ai"
+pg_dump --format=custom --file (Join-Path $backup "medicare_ai.dump")
+$medicalRecordsPath = ".\storage\medical-records"
+$doctorCredentialsPath = ".\storage\doctor-credentials"
+New-Item -ItemType Directory -Force -Path $medicalRecordsPath, $doctorCredentialsPath | Out-Null
+robocopy $medicalRecordsPath (Join-Path $backup "medical-records") /E /R:2 /W:2
+if ($LASTEXITCODE -ge 8) { throw "Medical-record storage backup failed." }
+robocopy $doctorCredentialsPath (Join-Path $backup "doctor-credentials") /E /R:2 /W:2
+if ($LASTEXITCODE -ge 8) { throw "Doctor-credential storage backup failed." }
+```
+
+Replace the storage source paths if `MEDICAL_RECORDS_STORAGE_DIR` or
+`DOCTOR_CREDENTIALS_STORAGE_DIR` points elsewhere. Restore into a new, empty
+database and the configured private storage directories; do not use
+`pg_restore --clean` against a database containing data you need to preserve.
+The example restores files into new staging directories so they do not merge
+with or overwrite existing uploads. After configuring the `PG*` variables
+above:
+
+```powershell
+createdb --maintenance-db=postgres medicare_ai_restore
+pg_restore --no-owner --dbname=medicare_ai_restore (Join-Path $backup "medicare_ai.dump")
+$restoreStorage = Join-Path $env:USERPROFILE ("medicare-ai-restored-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+$medicalRecordsRestore = Join-Path $restoreStorage "medical-records"
+$doctorCredentialsRestore = Join-Path $restoreStorage "doctor-credentials"
+New-Item -ItemType Directory -Force -Path $medicalRecordsRestore, $doctorCredentialsRestore | Out-Null
+robocopy (Join-Path $backup "medical-records") $medicalRecordsRestore /E /R:2 /W:2
+if ($LASTEXITCODE -ge 8) { throw "Medical-record storage restore failed." }
+robocopy (Join-Path $backup "doctor-credentials") $doctorCredentialsRestore /E /R:2 /W:2
+if ($LASTEXITCODE -ge 8) { throw "Doctor-credential storage restore failed." }
+```
+
+Set `DATABASE_URL`, `MEDICAL_RECORDS_STORAGE_DIR`, and
+`DOCTOR_CREDENTIALS_STORAGE_DIR` to the restored database and staging
+directories before starting the API. If the restored schema is behind the
+application revision, review and apply
+`python -m alembic upgrade head` before serving traffic. This procedure is
+documentation only; a restore drill, production backup automation, off-site
+retention, and recovery objectives have not been independently validated.
 
 ## Run the API
 
@@ -132,6 +203,13 @@ python -m uvicorn app.main:app --reload
 | PUT | `/api/v1/doctor/appointments/{appointment_id}/notes` | Save private doctor notes |
 | GET | `/api/v1/admin/appointments` | Inspect appointments (admin only, read-only) |
 | GET | `/api/v1/admin/appointments/{appointment_id}` | Inspect appointment detail and audit events (admin only) |
+| GET | `/api/v1/admin/analytics/overview` | Aggregate KPI counts and prior-period comparisons (admin only) |
+| GET | `/api/v1/admin/analytics/patients` | Patient registration totals and trends (admin only) |
+| GET | `/api/v1/admin/analytics/doctors` | Doctor/credential status counts and trends (admin only) |
+| GET | `/api/v1/admin/analytics/appointments` | Appointment status and lifecycle trends (admin only) |
+| GET | `/api/v1/admin/analytics/notifications` | Notification job, retry, and email delivery aggregates (admin only) |
+| GET | `/api/v1/admin/analytics/doctor-performance` | Paginated per-doctor operational counts (admin only) |
+| GET | `/api/v1/admin/analytics/export` | Download aggregate-only CSV reports (admin only) |
 
 Patient and doctor registration assign their roles on the server. Doctor
 registration requires a professional profile and medical registration number;
@@ -148,6 +226,62 @@ existing Argon2 utility, and creates an `ADMIN` user without exposing a
 credential in shell history. Protect host access and database credentials;
 never expose this operational command as a public API. Protected endpoints use
 `Authorization: Bearer <access_token>`.
+
+## Admin analytics (Phase 7)
+
+The analytics API and `/admin/analytics` frontend route require the
+`ADMIN` role. Patients and doctors receive `403 Forbidden`; no public
+administrator registration exists. Supported periods are `today`,
+`last_7_days`, `last_30_days`, `last_90_days`, `this_month`,
+`previous_month`, and `custom`. Custom requests require inclusive
+`start_date=YYYY-MM-DD` and `end_date=YYYY-MM-DD`. Trends accept
+`granularity=day|week|month`; appointment reports additionally accept
+`status` and positive `doctor_id`, and doctor reports accept
+`verification_status`.
+
+Clinic reporting uses `Asia/Kolkata`. Local date boundaries are converted to
+UTC and queried as half-open ranges (`timestamp >= start AND timestamp < end`),
+so the selected `date_to` includes its complete local day. Appointment
+timestamps remain stored as UTC and appointment scheduling timezone behavior
+is unchanged.
+
+Definitions:
+
+- Overview user/patient/doctor/appointment totals are current database totals.
+  Upcoming overview appointments are BOOKED or CONFIRMED with a future
+  scheduled start. New-user, new-patient, new-doctor, and appointment-creation
+  comparisons count records created in the selected window versus the
+  immediately preceding window of the same duration. A percentage is omitted
+  when the previous count is zero.
+- Patient totals and active/inactive counts use `users.is_active`; registration
+  trends count PATIENT users by `users.created_at`.
+- Doctor status counts use the current profile status. Credential counts use
+  credential submission dates and statuses, not files or reviewer details.
+  Doctor approval trends count APPROVED events by audit timestamp.
+- Appointment volume/status counts use appointment creation time and current
+  status. Cancellation/completion trends use their audit event timestamps.
+  The appointment upcoming count is limited to future scheduled starts inside
+  the selected local date window. Doctor performance appointment/completed/
+  cancelled counts use booking creation time; its upcoming count includes all
+  currently booked or confirmed future appointments, independent of the
+  selected booking period. Operational volume is not a measure of clinical
+  quality.
+- Notification job counts and trends use job creation time. Total retries are
+  the sum of `attempt_count - 1` for jobs attempted more than once.
+  Email-success rate is SENT email jobs divided by SENT plus FAILED email jobs;
+  it is unavailable when that denominator is zero.
+- CSV datasets are patient registration aggregates, doctor registration/status
+  aggregates, appointment creation/status aggregates, and notification
+  channel/status/retry aggregates. Filters and reporting timezone are
+  preserved. CSV cells beginning with spreadsheet formula characters after
+  whitespace are prefixed with an apostrophe. Exports do not contain patient
+  names, emails, medical records, credential documents, notification
+  recipients, or message bodies.
+
+Analytics are calculated with SQL aggregate queries and time-range indexes;
+doctor-performance lists are paginated. Empty ranges return zero-filled trend
+buckets and status counts, not fabricated sample data. No analytics data
+warehouse or external service is used.
 
 ## Doctor verification and discovery
 
@@ -237,6 +371,63 @@ database before production. This development system does not apply
 distributed rate limits; add rate limiting and abuse monitoring before public
 deployment.
 
+## Notifications and email worker
+
+Appointment booking, confirmation, cancellation, rescheduling, and completion
+create in-app notifications and durable email outbox jobs in the appointment
+transaction. New bookings and reschedules also schedule 24-hour and 1-hour
+reminders for both participants, subject to their preferences and the
+appointment being far enough in the future. Reminder jobs are cancelled or
+revalidated when an appointment changes, and preference changes cancel
+reminders that are no longer enabled.
+
+Authenticated users can list, mark, and delete their own in-app notifications
+and manage preferences:
+
+- `GET /api/v1/notifications`
+- `GET /api/v1/notifications/unread-count`
+- `PATCH /api/v1/notifications/{notification_id}/read`
+- `PATCH /api/v1/notifications/read-all`
+- `DELETE /api/v1/notifications/{notification_id}`
+- `GET /api/v1/notifications/preferences`
+- `PUT /api/v1/notifications/preferences`
+
+Admins can inspect delivery state without seeing message bodies or full email
+addresses through `GET /api/v1/admin/notifications/jobs`. Frontend pages are
+available at `/notifications` for patients, `/doctor/notifications` for
+doctors, `/admin/notifications` for admins, and `/admin/notification-jobs` for
+admin monitoring. The API independently enforces authentication and role
+checks.
+
+Run the worker in a separate process from `backend/`:
+
+```powershell
+python -m app.services.notification_worker
+```
+
+It polls every `NOTIFICATION_WORKER_POLL_SECONDS` (default 5), claims due jobs
+with a lease, and retries SMTP transport failures with bounded exponential
+backoff (`NOTIFICATION_MAX_ATTEMPTS`, `NOTIFICATION_RETRY_BASE_SECONDS`, and
+`NOTIFICATION_RETRY_MAX_SECONDS`). Use
+`python -m app.services.notification_worker --once` to process one due-job
+batch. Configure `SMTP_HOST`, `SMTP_FROM_EMAIL`, `SMTP_PORT`, and TLS/SSL
+options in the private backend `.env`; credentials are optional but must be
+configured together. `FRONTEND_BASE_URL` is optional and must be an HTTP(S)
+URL. SMTP is disabled by default. Email jobs created before SMTP is configured
+are recorded as skipped and are not automatically replayed after SMTP is
+enabled.
+
+Appointment times remain UTC instants; reminder email display uses
+`APPOINTMENT_TIMEZONE` (default `UTC`). Email messages contain appointment
+status, date/time, and the other participant's name only; they omit visit
+reasons, patient/doctor notes, medical records, and credential documents.
+SMTP delivery is at-least-once in the narrow failure case where the remote
+server accepts a message but the worker exits before committing the job.
+No live SMTP service is included or claimed as tested. Deploy the worker with
+the same database settings as the API and monitor failed jobs through the
+admin page. Notification processing does not currently have distributed
+rate-limiting or an external queue dependency.
+
 ## Medical-record storage
 
 Uploads use multipart form data with a title, one of the categories
@@ -266,13 +457,14 @@ Run from the `backend` directory:
 python -m pytest
 ```
 
-tests use a fresh in-memory SQLite database and do not require a running
+Tests use a fresh in-memory SQLite database and do not require a running
 PostgreSQL server. They cover authentication, patient records, doctor
 registration, verification permissions/transitions, private credential
 upload/review, appointment availability, booking, ownership, lifecycle
-transitions, and sequential overlap prevention. Validate migration
-upgrade/downgrade/re-upgrade, Alembic metadata parity, and concurrent booking
-against PostgreSQL before deployment.
+transitions, notification ownership/preferences, SMTP retry handling, and
+sequential overlap prevention. Validate migration
+upgrade/downgrade/re-upgrade, Alembic metadata parity, concurrent booking, and
+worker claiming against PostgreSQL before deployment.
 
 ## Security notes
 

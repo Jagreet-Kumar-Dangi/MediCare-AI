@@ -6,7 +6,8 @@ patient profile and medical-record pages, doctor registration/status,
 credential submission, approved-doctor discovery, and administrator doctor
 and credential verification workspaces. It also provides patient booking and
 appointment history, doctor availability and appointment management, and a
-read-only administrator appointment overview.
+read-only administrator appointment overview, appointment notifications and
+preferences, and an administrator notification-job monitor.
 
 ## Setup
 
@@ -47,7 +48,20 @@ from eligible doctors, cancel or reschedule outside the configured cutoff,
 and view appointment history. Doctors manage weekly availability, breaks,
 unavailable dates, and assigned appointment requests. Administrators can
 inspect appointment details and audit history but cannot alter bookings.
-All authorization is also enforced by the backend. The patient dashboard marks
+All authorization is also enforced by the backend. Authenticated users can
+review and manage their own in-app notifications and delivery preferences.
+The administrator notification monitor shows masked recipient and job status
+metadata only. Email delivery requires the separately configured backend
+worker and SMTP service. The patient dashboard marks
 illustrative chart data clearly and does not display fabricated medical
 readings or history. Medical report files are uploaded to the authenticated
 backend and are not stored in frontend assets or browser storage.
+
+Administrators can open the protected `/admin/analytics` workspace for live
+aggregate metrics, patient and doctor registration trends, appointment status
+and lifecycle charts, notification job/retry counts, per-doctor operational
+counts, and CSV downloads. Date filters use the backend's `Asia/Kolkata`
+reporting calendar. The dashboard does not display patient medical records,
+private credential files, notification recipients, or message contents. Trend
+charts use Recharts and show an explicit empty state when the selected range
+has no records.

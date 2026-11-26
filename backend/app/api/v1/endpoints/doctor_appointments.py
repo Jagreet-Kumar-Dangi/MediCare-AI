@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import require_role
 from app.core.appointments import AppointmentAuditAction, AppointmentStatus
+from app.core.notifications import NotificationType
 from app.db.session import get_db
 from app.models import (
     Appointment,
@@ -26,6 +27,10 @@ from app.services.appointment_service import (
     load_appointment,
     to_utc,
     utc_now,
+)
+from app.services.notification_service import (
+    cancel_reminder_jobs,
+    create_appointment_event_notifications,
 )
 
 router = APIRouter(prefix="/doctor/appointments", tags=["appointments"])
@@ -65,16 +70,16 @@ def _record_event(
     actor: User,
     action: AppointmentAuditAction,
     reason: str | None = None,
-) -> None:
-    db.add(
-        AppointmentAuditEvent(
-            appointment_id=appointment.id,
-            actor_user_id=actor.id,
-            action=action.value,
-            reason=reason,
-            created_at=utc_now(),
-        )
+) -> AppointmentAuditEvent:
+    event = AppointmentAuditEvent(
+        appointment_id=appointment.id,
+        actor_user_id=actor.id,
+        action=action.value,
+        reason=reason,
+        created_at=utc_now(),
     )
+    db.add(event)
+    return event
 
 
 def _doctor_profile(db: Session, user_id: int) -> DoctorProfile:
@@ -160,13 +165,36 @@ def _transition(
         appointment.cancellation_reason = reason
     elif action == AppointmentAuditAction.REJECTED:
         appointment.rejection_reason = reason
-    _record_event(
+    event = _record_event(
         db,
         appointment=appointment,
         actor=current_doctor,
         action=action,
         reason=reason,
     )
+    db.flush()
+    notification_types = {
+        AppointmentAuditAction.CONFIRMED: NotificationType.APPOINTMENT_CONFIRMED,
+        AppointmentAuditAction.CANCELLED: NotificationType.APPOINTMENT_CANCELLED,
+        AppointmentAuditAction.COMPLETED: NotificationType.APPOINTMENT_COMPLETED,
+    }
+    notification_type = notification_types.get(action)
+    if notification_type is not None:
+        create_appointment_event_notifications(
+            db,
+            appointment=appointment,
+            notification_type=notification_type,
+            event_id=event.id,
+        )
+    elif action in {
+        AppointmentAuditAction.REJECTED,
+        AppointmentAuditAction.NO_SHOW,
+    }:
+        cancel_reminder_jobs(
+            db,
+            appointment_id=appointment.id,
+            reason="appointment_inactive",
+        )
     db.commit()
     return appointment_payload(load_appointment(db, appointment.id), view="doctor")
 

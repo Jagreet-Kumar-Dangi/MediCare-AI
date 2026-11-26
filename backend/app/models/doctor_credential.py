@@ -71,6 +71,7 @@ class DoctorCredential(Base):
             "verification_status",
             "submitted_at",
         ),
+        Index("ix_doctor_credentials_submitted_at", "submitted_at"),
         Index(
             "uq_doctor_credentials_one_active_per_type",
             "doctor_profile_id",

@@ -282,7 +282,10 @@ def load_appointment(db: Session, appointment_id: int) -> Appointment | None:
 
 
 def appointment_payload(appointment: Appointment, *, view: str) -> dict:
-    events = sorted(appointment.audit_events, key=lambda event: (event.created_at, event.id))
+    events = sorted(
+        appointment.audit_events,
+        key=lambda event: (to_utc(event.created_at), event.id),
+    )
     payload = {
         "id": appointment.id,
         "doctor": {

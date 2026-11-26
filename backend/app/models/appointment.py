@@ -157,6 +157,7 @@ class Appointment(Base):
             "status",
             "scheduled_start",
         ),
+        Index("ix_appointments_created_at", "created_at"),
         ExcludeConstraint(
             ("doctor_profile_id", "="),
             (
@@ -235,6 +236,7 @@ class AppointmentAuditEvent(Base):
             "appointment_id",
             "created_at",
         ),
+        Index("ix_appointment_audit_events_created_at", "created_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
