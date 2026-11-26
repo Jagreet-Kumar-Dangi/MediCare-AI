@@ -2,6 +2,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.schemas.doctor import DoctorRegistrationProfile
+
 
 PasswordInput = Annotated[str, Field(min_length=12, max_length=128)]
 LoginPassword = Annotated[str, Field(min_length=1, max_length=128)]
@@ -40,7 +42,7 @@ class PatientRegistration(BaseModel):
         return normalized
 
 
-class DoctorRegistration(BaseModel):
+class DoctorRegistration(DoctorRegistrationProfile):
     email: EmailStr
     password: PasswordInput
 

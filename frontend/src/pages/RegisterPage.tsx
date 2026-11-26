@@ -5,9 +5,16 @@ import { getApiErrorMessage } from '../api/errors'
 import { AuthLayout } from '../components/AuthLayout'
 import { useAuth } from '../auth/useAuth'
 import { FormField, PasswordField } from '../components/FormField'
+import type { UserRole } from '../types/api'
+
+function homeForRole(role: UserRole): string {
+  if (role === 'DOCTOR') return '/doctor/dashboard'
+  if (role === 'ADMIN') return '/admin/doctors'
+  return '/dashboard'
+}
 
 export function RegisterPage() {
-  const { registerPatient, status } = useAuth()
+  const { registerPatient, status, user } = useAuth()
   const navigate = useNavigate()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -18,8 +25,8 @@ export function RegisterPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (status === 'authenticated') {
-    return <Navigate to="/dashboard" replace />
+  if (status === 'authenticated' && user) {
+    return <Navigate to={homeForRole(user.role)} replace />
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -160,6 +167,15 @@ export function RegisterPage() {
         <p className="text-center text-xs leading-5 text-ink-600">
           Registration creates a patient account only. Your password is never
           shown in the portal.
+        </p>
+        <p className="text-center text-sm text-ink-600">
+          Are you a healthcare professional?{' '}
+          <Link
+            className="font-bold text-brand-700 hover:text-brand-600"
+            to="/register/doctor"
+          >
+            Apply as a doctor
+          </Link>
         </p>
       </form>
     </AuthLayout>

@@ -10,7 +10,14 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import PatientProfile, RevokedToken, User
+from app.models import (
+    DoctorProfile,
+    DoctorVerificationEvent,
+    MedicalRecord,
+    PatientProfile,
+    RevokedToken,
+    User,
+)
 
 
 @pytest.fixture
@@ -21,7 +28,15 @@ def test_engine() -> Generator[Engine, None, None]:
         poolclass=StaticPool,
     )
     expected_tables = {
-        model.__tablename__ for model in (User, PatientProfile, RevokedToken)
+        model.__tablename__
+        for model in (
+            User,
+            PatientProfile,
+            DoctorProfile,
+            DoctorVerificationEvent,
+            RevokedToken,
+            MedicalRecord,
+        )
     }
     Base.metadata.create_all(engine)
     assert expected_tables <= Base.metadata.tables.keys()

@@ -1,9 +1,14 @@
 from datetime import date, datetime, timezone
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.medical_record import MedicalRecord
+    from app.models.user import User
 
 
 class PatientProfile(Base):
@@ -42,3 +47,7 @@ class PatientProfile(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="patient_profile")
+    medical_records: Mapped[list["MedicalRecord"]] = relationship(
+        back_populates="patient",
+        cascade="all, delete-orphan",
+    )

@@ -163,11 +163,11 @@ export function DashboardPage() {
             tone="blue"
           />
           <OverviewCard
-            detail="Clinical records are not connected in this phase."
+            detail="Upload and review your reports in private patient storage."
             icon={FileHeart}
-            label="Health records"
-            status="Not connected"
-            tone="coral"
+            label="Medical records"
+            status="Available"
+            tone="teal"
           />
         </div>
       </section>
@@ -296,7 +296,30 @@ export function DashboardPage() {
               size={17}
             />
           </Link>
-          <div className="flex items-center gap-3 rounded-2xl border border-line bg-white p-4 sm:p-5">
+          <Link
+            className="group flex items-center justify-between rounded-2xl border border-line bg-white p-4 transition hover:border-brand-600/30 hover:shadow-sm sm:p-5"
+            to="/medical-records"
+          >
+            <span className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-xl bg-sky-100 text-brand-700">
+                <FileHeart aria-hidden="true" size={18} />
+              </span>
+              <span>
+                <span className="block text-sm font-bold text-ink-950">
+                  Manage medical records
+                </span>
+                <span className="mt-0.5 block text-xs text-ink-600">
+                  Upload or review your reports
+                </span>
+              </span>
+            </span>
+            <ArrowRight
+              aria-hidden="true"
+              className="text-ink-600 transition group-hover:translate-x-1 group-hover:text-brand-700"
+              size={17}
+            />
+          </Link>
+          <div className="flex items-center gap-3 rounded-2xl border border-line bg-white p-4 sm:p-5 sm:col-span-2">
             <span className="grid size-10 place-items-center rounded-xl bg-[#fff1ec] text-coral-500">
               <CircleCheck aria-hidden="true" size={18} />
             </span>

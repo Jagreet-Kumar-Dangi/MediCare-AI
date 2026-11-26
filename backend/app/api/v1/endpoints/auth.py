@@ -17,6 +17,7 @@ from app.schemas.auth import (
 )
 from app.schemas.user import PublicUser
 from app.services.auth_service import (
+    DoctorRegistrationNumberAlreadyUsedError,
     EmailAlreadyRegisteredError,
     authenticate_user,
     register_doctor,
@@ -64,11 +65,25 @@ def register_doctor_account(
             db,
             email=str(registration.email),
             password=registration.password,
+            full_name=registration.full_name,
+            specialization=registration.specialization,
+            qualification=registration.qualification,
+            medical_registration_number=registration.medical_registration_number,
+            years_of_experience=registration.years_of_experience,
+            phone_number=registration.phone_number,
+            clinic_or_hospital=registration.clinic_or_hospital,
+            consultation_fee=registration.consultation_fee,
+            biography=registration.biography,
         )
     except EmailAlreadyRegisteredError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="An account with this email already exists.",
+        ) from None
+    except DoctorRegistrationNumberAlreadyUsedError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A doctor with this medical registration number already exists.",
         ) from None
 
 

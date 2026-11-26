@@ -2,8 +2,9 @@
 
 MediCare AI is a healthcare platform foundation. The backend provides
 versioned health checks, account registration and login, JWT authentication,
-and patient-owned profile management. The frontend provides the initial
-patient portal experience.
+patient-owned profile and medical-record management, and doctor verification
+and discovery. The frontend provides patient, doctor, and administrator
+workspaces for the implemented features.
 
 ## Project layout
 
@@ -51,8 +52,13 @@ development CORS configuration.
 ## Phase scope
 
 Implemented: backend foundation, PATIENT/DOCTOR/ADMIN role model, patient and
-doctor self-registration, login/logout, current-user authentication, and
-patient profile access.
+doctor registration, login/logout, current-user authentication, patient
+profile and medical-record management, doctor verification and approved
+doctor discovery. Doctor credential documents and appointment management are
+not implemented yet. Medical files remain in private local development
+storage; this is not a compliance certification.
 
-Not implemented: public administrator registration, AI predictions, chatbot,
-medical report analysis, appointments, or reminders.
+There is no public administrator registration; trusted operators provision
+admins with `python -m app.cli create-admin` from `backend/`. AI predictions,
+chatbot, medical-report analysis, appointments, and reminders are not
+implemented. Medical-record uploads are not sent to an AI service.

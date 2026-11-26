@@ -1,11 +1,16 @@
 from datetime import datetime, timezone
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum as SqlEnum
 from sqlalchemy import String, UniqueConstraint, func, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.doctor_profile import DoctorProfile
+    from app.models.patient_profile import PatientProfile
 
 
 class UserRole(str, Enum):
@@ -46,6 +51,12 @@ class User(Base):
 
     patient_profile: Mapped["PatientProfile | None"] = relationship(
         back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    doctor_profile: Mapped["DoctorProfile | None"] = relationship(
+        back_populates="user",
+        foreign_keys="DoctorProfile.user_id",
         cascade="all, delete-orphan",
         uselist=False,
     )

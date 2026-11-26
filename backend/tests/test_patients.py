@@ -36,6 +36,11 @@ def test_non_patient_cannot_access_patient_profile(client: TestClient) -> None:
         json={
             "email": "doctor@example.com",
             "password": "another-strong-password",
+            "full_name": "Dr. Devon North",
+            "specialization": "Family Medicine",
+            "qualification": "MD",
+            "medical_registration_number": "DOC-0003",
+            "years_of_experience": 5,
         },
     )
     assert registration.status_code == 201

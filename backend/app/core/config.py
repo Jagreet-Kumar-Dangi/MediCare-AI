@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +16,10 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
+    medical_records_storage_dir: Path = (
+        Path(__file__).resolve().parents[2] / "storage" / "medical-records"
+    )
+    medical_records_max_upload_size_mb: int = Field(default=10, gt=0)
 
     @field_validator("jwt_secret_key")
     @classmethod

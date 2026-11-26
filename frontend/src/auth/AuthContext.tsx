@@ -10,6 +10,7 @@ import {
   getCurrentUser,
   login as loginRequest,
   logout as logoutRequest,
+  registerDoctor as registerDoctorRequest,
   registerPatient as registerPatientRequest,
 } from '../api/auth'
 import {
@@ -20,6 +21,7 @@ import {
 } from '../api/client'
 import type {
   LoginPayload,
+  DoctorRegistrationPayload,
   PatientRegistrationPayload,
   PublicUser,
 } from '../types/api'
@@ -48,13 +50,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setStatus('loading')
     try {
       const currentUser = await getCurrentUser()
-      if (currentUser.role !== 'PATIENT') {
-        clearAccessToken()
-        setUser(null)
-        setStatus('unauthenticated')
-        setRestoreError('This portal is currently available to patients.')
-        return
-      }
       setUser(currentUser)
       setStatus('authenticated')
     } catch (error) {
@@ -75,13 +70,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       void getCurrentUser()
         .then((currentUser) => {
           if (!active) return
-          if (currentUser.role !== 'PATIENT') {
-            clearAccessToken()
-            setUser(null)
-            setStatus('unauthenticated')
-            setRestoreError('This portal is currently available to patients.')
-            return
-          }
           setUser(currentUser)
           setStatus('authenticated')
         })
@@ -102,24 +90,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [handleUnauthorized])
 
-  const signIn = useCallback(async (payload: LoginPayload) => {
+  const signIn = useCallback(async (payload: LoginPayload): Promise<PublicUser> => {
     const tokenResponse = await loginRequest(payload)
     setAccessToken(tokenResponse.access_token)
     try {
       const currentUser = await getCurrentUser()
-      if (currentUser.role !== 'PATIENT') {
-        try {
-          await logoutRequest()
-        } finally {
-          clearAccessToken()
-          setUser(null)
-          setStatus('unauthenticated')
-        }
-        throw new Error('This portal is currently available to patients.')
-      }
       setUser(currentUser)
       setRestoreError(null)
       setStatus('authenticated')
+      return currentUser
     } catch (error) {
       clearAccessToken()
       setUser(null)
@@ -130,6 +109,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const registerPatient = useCallback(
     (payload: PatientRegistrationPayload) => registerPatientRequest(payload),
+    [],
+  )
+
+  const registerDoctor = useCallback(
+    (payload: DoctorRegistrationPayload) => registerDoctorRequest(payload),
     [],
   )
 
@@ -148,6 +132,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       restoreError,
       signIn,
       registerPatient,
+      registerDoctor,
       signOut,
       retrySessionRestore,
     }),
@@ -157,6 +142,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       restoreError,
       signIn,
       registerPatient,
+      registerDoctor,
       signOut,
       retrySessionRestore,
     ],

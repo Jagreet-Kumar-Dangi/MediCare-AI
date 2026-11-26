@@ -2,12 +2,23 @@ import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './useAuth'
 import { PageLoader } from '../components/PageLoader'
+import type { UserRole } from '../types/api'
 
 interface ProtectedRouteProps {
   children: ReactNode
+  allowedRoles?: UserRole[]
 }
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
+function roleHome(role: UserRole): string {
+  if (role === 'DOCTOR') return '/doctor/dashboard'
+  if (role === 'ADMIN') return '/admin/doctors'
+  return '/dashboard'
+}
+
+export function ProtectedRoute({
+  children,
+  allowedRoles = ['PATIENT'],
+}: ProtectedRouteProps) {
   const { status, restoreError, retrySessionRestore, user } = useAuth()
   const location = useLocation()
 
@@ -50,8 +61,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     )
   }
 
-  if (user.role !== 'PATIENT') {
-    return <Navigate to="/" replace />
+  if (!allowedRoles.includes(user.role)) {
+    return <Navigate to={roleHome(user.role)} replace />
   }
 
   return children

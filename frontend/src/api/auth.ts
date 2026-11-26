@@ -1,6 +1,7 @@
 import { apiClient } from './client'
 import type {
   LoginPayload,
+  DoctorRegistrationPayload,
   PatientRegistrationPayload,
   PublicUser,
   TokenResponse,
@@ -11,6 +12,16 @@ export async function registerPatient(
 ): Promise<PublicUser> {
   const response = await apiClient.post<PublicUser>(
     '/auth/register/patient',
+    payload,
+  )
+  return response.data
+}
+
+export async function registerDoctor(
+  payload: DoctorRegistrationPayload,
+): Promise<PublicUser> {
+  const response = await apiClient.post<PublicUser>(
+    '/auth/register/doctor',
     payload,
   )
   return response.data

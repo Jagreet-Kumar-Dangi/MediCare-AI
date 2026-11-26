@@ -5,14 +5,33 @@ import { getApiErrorMessage } from '../api/errors'
 import { AuthLayout } from '../components/AuthLayout'
 import { useAuth } from '../auth/useAuth'
 import { FormField, PasswordField } from '../components/FormField'
+import type { UserRole } from '../types/api'
 
 interface LoginLocationState {
   from?: { pathname?: string }
   message?: string
 }
 
+function homeForRole(role: UserRole): string {
+  if (role === 'DOCTOR') return '/doctor/dashboard'
+  if (role === 'ADMIN') return '/admin/doctors'
+  return '/dashboard'
+}
+
+function canOpenPath(role: UserRole, path: string): boolean {
+  const allowedRoots =
+    role === 'PATIENT'
+      ? ['/dashboard', '/profile', '/medical-records', '/doctors']
+      : role === 'DOCTOR'
+        ? ['/doctor']
+        : ['/admin']
+  return allowedRoots.some(
+    (root) => path === root || path.startsWith(`${root}/`),
+  )
+}
+
 export function LoginPage() {
-  const { signIn, status } = useAuth()
+  const { signIn, status, user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const routeState = location.state as LoginLocationState | null
@@ -22,8 +41,8 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (status === 'authenticated') {
-    return <Navigate to="/dashboard" replace />
+  if (status === 'authenticated' && user) {
+    return <Navigate to={homeForRole(user.role)} replace />
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -31,12 +50,14 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await signIn({ email: email.trim(), password })
+      const signedInUser = await signIn({ email: email.trim(), password })
       const requestedPath = routeState?.from?.pathname
       const safePath =
-        requestedPath?.startsWith('/') && !requestedPath.startsWith('//')
+        requestedPath?.startsWith('/') &&
+        !requestedPath.startsWith('//') &&
+        canOpenPath(signedInUser.role, requestedPath)
           ? requestedPath
-          : '/dashboard'
+          : homeForRole(signedInUser.role)
       navigate(safePath, { replace: true })
     } catch (requestError) {
       setError(getApiErrorMessage(requestError))
@@ -47,7 +68,7 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      description="Welcome back. Sign in to review your patient profile and account."
+      description="Welcome back. Sign in to continue to your MediCare AI workspace."
       footer={
         <>
           New to MediCare AI?{' '}

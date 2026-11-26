@@ -2,6 +2,7 @@ import {
   Activity,
   ArrowUpRight,
   CircleUserRound,
+  FileHeart,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -16,6 +17,7 @@ import { Brand } from './Brand'
 const navigation = [
   { label: 'Overview', to: '/dashboard', icon: LayoutDashboard },
   { label: 'My profile', to: '/profile', icon: CircleUserRound },
+  { label: 'Medical records', to: '/medical-records', icon: FileHeart },
 ]
 
 export function PatientLayout() {
@@ -26,7 +28,11 @@ export function PatientLayout() {
   const [logoutError, setLogoutError] = useState<string | null>(null)
 
   const pageTitle =
-    location.pathname === '/profile' ? 'My profile' : 'Patient overview'
+    location.pathname === '/profile'
+      ? 'My profile'
+      : location.pathname === '/medical-records'
+        ? 'Medical records'
+        : 'Patient overview'
 
   async function handleSignOut() {
     setLogoutError(null)
@@ -77,8 +83,7 @@ export function PatientLayout() {
             Your care, clearly
           </div>
           <p className="mt-2 text-xs leading-5 text-ink-600">
-            Profile tools are ready. Clinical services will appear as they are
-            connected.
+            Your profile and private report storage are ready for use.
           </p>
         </div>
       </aside>

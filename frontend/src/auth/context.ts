@@ -1,6 +1,7 @@
 import { createContext } from 'react'
 import type {
   LoginPayload,
+  DoctorRegistrationPayload,
   PatientRegistrationPayload,
   PublicUser,
 } from '../types/api'
@@ -15,8 +16,9 @@ export interface AuthContextValue {
   user: PublicUser | null
   status: AuthStatus
   restoreError: string | null
-  signIn: (payload: LoginPayload) => Promise<void>
+  signIn: (payload: LoginPayload) => Promise<PublicUser>
   registerPatient: (payload: PatientRegistrationPayload) => Promise<PublicUser>
+  registerDoctor: (payload: DoctorRegistrationPayload) => Promise<PublicUser>
   signOut: () => Promise<void>
   retrySessionRestore: () => Promise<void>
 }

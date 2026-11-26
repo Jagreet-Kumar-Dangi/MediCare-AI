@@ -81,7 +81,7 @@ export function AuthLayout({
           </div>
           <div className="mx-auto flex w-full max-w-[430px] flex-1 flex-col justify-center py-10">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-700">
-              Patient portal
+              Secure workspace
             </p>
             <h2 className="mt-3 text-3xl font-semibold tracking-[-0.045em] text-ink-950 sm:text-[36px]">
               {title}

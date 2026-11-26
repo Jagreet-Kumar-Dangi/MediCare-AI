@@ -33,6 +33,11 @@ def test_doctor_registration_is_doctor_role_and_admin_is_not_public(
         json={
             "email": "doctor@example.com",
             "password": "another-strong-password",
+            "full_name": "Dr. Devon North",
+            "specialization": "Family Medicine",
+            "qualification": "MD",
+            "medical_registration_number": "DOC-0001",
+            "years_of_experience": 5,
         },
     )
     admin_response = client.post(
@@ -70,6 +75,11 @@ def test_duplicate_email_is_case_insensitive(client: TestClient) -> None:
         json={
             "email": "Doctor@Example.com",
             "password": "another-strong-password",
+            "full_name": "Dr. Devon North",
+            "specialization": "Family Medicine",
+            "qualification": "MD",
+            "medical_registration_number": "DOC-0002",
+            "years_of_experience": 5,
         },
     )
     duplicate_response = client.post(
