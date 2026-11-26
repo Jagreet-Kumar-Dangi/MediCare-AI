@@ -16,10 +16,14 @@ readiness or compliance assessment.
 
 Phase 7 adds admin-only SQL aggregate analytics, `Asia/Kolkata` reporting
 windows, paginated doctor operations data, and aggregate-only CSV exports.
-Its additive analytics-index migration is `20261127_0007`; validate it against
-the configured PostgreSQL database before considering the phase ready for live
-verification. Analytics do not expose patient medical records, credential
-files, or notification contents.
+Its additive analytics-index migration is `20261127_0007`, applied and
+Alembic-checked on the configured local PostgreSQL database. Aggregate
+endpoints were smoke-tested against PostgreSQL using temporary records rolled
+back after the checks. The browser workflow was exercised with isolated
+SQLite test data; at validation time the configured PostgreSQL database had
+no administrator accounts, so authenticated PostgreSQL browser verification
+remains outstanding. Analytics do not expose patient medical records,
+credential files, or notification contents.
 
 ## Workspace facts
 

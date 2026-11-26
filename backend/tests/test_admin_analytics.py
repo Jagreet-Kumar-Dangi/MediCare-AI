@@ -241,8 +241,15 @@ def test_admin_analytics_routes_require_admin_and_validate_custom_range(
             role=UserRole.ADMIN,
             created_at=datetime.now(timezone.utc),
         )
+        doctor = _create_user(
+            db,
+            email="analytics-route-doctor@example.com",
+            role=UserRole.DOCTOR,
+            created_at=datetime.now(timezone.utc),
+        )
         db.commit()
         admin_token = create_access_token(admin.id)
+        doctor_token = create_access_token(doctor.id)
 
     invalid_range = client.get(
         "/api/v1/admin/analytics/patients",
@@ -253,9 +260,24 @@ def test_admin_analytics_routes_require_admin_and_validate_custom_range(
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
+    doctor_denied = client.get(
+        "/api/v1/admin/analytics/overview",
+        headers={"Authorization": f"Bearer {doctor_token}"},
+    )
+    csv_response = client.get(
+        "/api/v1/admin/analytics/export",
+        params={"dataset": "patients", "period": "today"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
 
     assert denied.status_code == 403
+    assert doctor_denied.status_code == 403
     assert invalid_range.status_code == 422
+    assert csv_response.status_code == 200
+    assert csv_response.headers["content-type"].startswith("text/csv")
+    assert csv_response.text.startswith("local_date,registrations\r\n")
+    assert "patient_email" not in csv_response.text
+    assert "medical_record" not in csv_response.text
 
 
 def test_csv_cells_escape_spreadsheet_formulas() -> None:
