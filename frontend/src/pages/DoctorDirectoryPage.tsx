@@ -63,8 +63,8 @@ export function DoctorDirectoryPage() {
           Find a verified doctor
         </h1>
         <p className="mt-3 text-sm leading-6 text-ink-600">
-          Only approved, active doctor accounts appear here. Appointment
-          scheduling is not available in this release.
+          Only approved, active doctors with verified required credentials appear
+          here. Request an available appointment from a doctor’s profile.
         </p>
       </header>
 

@@ -11,6 +11,12 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models import (
+    Appointment,
+    AppointmentAuditEvent,
+    DoctorCredential,
+    DoctorCredentialReviewEvent,
+    DoctorAvailability,
+    DoctorAvailabilityException,
     DoctorProfile,
     DoctorVerificationEvent,
     MedicalRecord,
@@ -31,8 +37,14 @@ def test_engine() -> Generator[Engine, None, None]:
         model.__tablename__
         for model in (
             User,
+            Appointment,
+            AppointmentAuditEvent,
             PatientProfile,
             DoctorProfile,
+            DoctorAvailability,
+            DoctorAvailabilityException,
+            DoctorCredential,
+            DoctorCredentialReviewEvent,
             DoctorVerificationEvent,
             RevokedToken,
             MedicalRecord,

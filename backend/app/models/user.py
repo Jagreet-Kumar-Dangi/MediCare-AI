@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.appointment import Appointment, AppointmentAuditEvent
     from app.models.doctor_profile import DoctorProfile
     from app.models.patient_profile import PatientProfile
 
@@ -59,4 +60,16 @@ class User(Base):
         foreign_keys="DoctorProfile.user_id",
         cascade="all, delete-orphan",
         uselist=False,
+    )
+    patient_appointments: Mapped[list["Appointment"]] = relationship(
+        back_populates="patient",
+        foreign_keys="Appointment.patient_id",
+        passive_deletes="all",
+        order_by="Appointment.scheduled_start",
+    )
+    appointment_audit_events: Mapped[list["AppointmentAuditEvent"]] = relationship(
+        back_populates="actor",
+        foreign_keys="AppointmentAuditEvent.actor_user_id",
+        passive_deletes="all",
+        order_by="AppointmentAuditEvent.created_at",
     )

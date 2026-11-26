@@ -303,9 +303,9 @@ export function AdminDoctorsPage() {
                 )}
               </section>
               <p className="mt-5 rounded-2xl bg-amber-50 p-4 text-xs leading-5 text-amber-900">
-                Credential documents are not collected in this subphase. Verify
-                registration through the organization’s trusted process before
-                approving.
+                Credential documents are reviewed separately in Credential
+                verification. Public discovery also requires all configured
+                credentials to be approved.
               </p>
 
               {canApproveOrReject && (

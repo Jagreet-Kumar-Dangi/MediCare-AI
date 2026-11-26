@@ -3,8 +3,9 @@
 MediCare AI is a healthcare platform foundation. The backend provides
 versioned health checks, account registration and login, JWT authentication,
 patient-owned profile and medical-record management, and doctor verification
-and discovery. The frontend provides patient, doctor, and administrator
-workspaces for the implemented features.
+and discovery, private doctor credentials, and appointment scheduling. The
+frontend provides patient, doctor, and administrator workspaces for these
+features.
 
 ## Project layout
 
@@ -53,12 +54,24 @@ development CORS configuration.
 
 Implemented: backend foundation, PATIENT/DOCTOR/ADMIN role model, patient and
 doctor registration, login/logout, current-user authentication, patient
-profile and medical-record management, doctor verification and approved
-doctor discovery. Doctor credential documents and appointment management are
-not implemented yet. Medical files remain in private local development
-storage; this is not a compliance certification.
+profile and medical-record management, doctor verification, private doctor
+credential submission and review, approved-doctor discovery, doctor
+availability, and appointment booking and management. Medical and credential
+files remain in private local development storage; this is not a compliance
+certification.
+
+Doctor credentials support PDF, JPG, JPEG, and PNG uploads up to 10 MiB by
+default. Registration and degree certificates are required for directory
+eligibility by default; configure `REQUIRED_DOCTOR_CREDENTIAL_TYPES` in
+`backend/.env` to change the required set. Admin-only review actions are
+audited. See [backend/README.md](backend/README.md) for routes and storage
+configuration.
 
 There is no public administrator registration; trusted operators provision
 admins with `python -m app.cli create-admin` from `backend/`. AI predictions,
-chatbot, medical-report analysis, appointments, and reminders are not
-implemented. Medical-record uploads are not sent to an AI service.
+chatbot, medical-report analysis, and reminders are not implemented.
+Appointments are stored in UTC; `APPOINTMENT_TIMEZONE` configures the clinic
+timezone used for weekly availability and display. Patient cancellation and
+rescheduling are restricted inside a configurable 24-hour cutoff by default.
+See [backend/README.md](backend/README.md) for scheduling APIs and rules.
+Medical-record uploads are not sent to an AI service.

@@ -38,9 +38,15 @@ class StoredMedicalRecordFile:
     file_size: int
 
 
-def get_storage_directory() -> Path:
+InvalidPrivateFileUpload = InvalidMedicalRecordUpload
+PrivateFileUploadTooLarge = MedicalRecordUploadTooLarge
+StoredPrivateFile = StoredMedicalRecordFile
+
+
+def get_storage_directory(configured_directory: Path | None = None) -> Path:
     backend_dir = Path(__file__).resolve().parents[2]
-    configured_dir = settings.medical_records_storage_dir.expanduser()
+    storage_setting = configured_directory or settings.medical_records_storage_dir
+    configured_dir = storage_setting.expanduser()
     storage_dir = (
         configured_dir
         if configured_dir.is_absolute()
@@ -78,8 +84,13 @@ def _safe_original_filename(filename: str | None) -> str:
     return original_filename
 
 
-def _max_upload_size_bytes() -> int:
-    return settings.medical_records_max_upload_size_mb * 1024 * 1024
+def _max_upload_size_bytes(max_upload_size_mb: int | None = None) -> int:
+    limit_megabytes = (
+        settings.medical_records_max_upload_size_mb
+        if max_upload_size_mb is None
+        else max_upload_size_mb
+    )
+    return limit_megabytes * 1024 * 1024
 
 
 def _is_valid_pdf(file_obj: BinaryIO, file_size: int) -> bool:
@@ -264,7 +275,12 @@ def _validate_file_content(path: Path, extension: str, file_size: int) -> bool:
     return False
 
 
-def store_uploaded_file(upload: UploadFile) -> StoredMedicalRecordFile:
+def store_uploaded_file(
+    upload: UploadFile,
+    *,
+    storage_directory: Path | None = None,
+    max_upload_size_mb: int | None = None,
+) -> StoredPrivateFile:
     original_filename = _safe_original_filename(upload.filename)
     extension = PurePosixPath(original_filename).suffix.lower()
     expected_mime_type = _MIME_TYPES_BY_EXTENSION.get(extension)
@@ -278,12 +294,13 @@ def store_uploaded_file(upload: UploadFile) -> StoredMedicalRecordFile:
         raise InvalidMedicalRecordUpload(
             "The file type does not match its file name."
         )
-    if upload.size is not None and upload.size > _max_upload_size_bytes():
+    max_size_bytes = _max_upload_size_bytes(max_upload_size_mb)
+    if upload.size is not None and upload.size > max_size_bytes:
         raise MedicalRecordUploadTooLarge(
             "The uploaded file exceeds the configured size limit."
         )
 
-    storage_dir = get_storage_directory()
+    storage_dir = get_storage_directory(storage_directory)
     temporary_path: Path | None = None
     file_size = 0
     try:
@@ -299,7 +316,7 @@ def store_uploaded_file(upload: UploadFile) -> StoredMedicalRecordFile:
                 os.chmod(temporary_path, 0o600)
             while chunk := upload.file.read(_CHUNK_SIZE):
                 file_size += len(chunk)
-                if file_size > _max_upload_size_bytes():
+                if file_size > max_size_bytes:
                     raise MedicalRecordUploadTooLarge(
                         "The uploaded file exceeds the configured size limit."
                     )
@@ -331,11 +348,16 @@ def store_uploaded_file(upload: UploadFile) -> StoredMedicalRecordFile:
             temporary_path.unlink()
 
 
-def get_stored_file_path(storage_key: str, *, must_exist: bool = True) -> Path:
+def get_stored_file_path(
+    storage_key: str,
+    *,
+    must_exist: bool = True,
+    storage_directory: Path | None = None,
+) -> Path:
     if _STORAGE_KEY_PATTERN.fullmatch(storage_key) is None:
         raise FileNotFoundError
 
-    storage_dir = get_storage_directory()
+    storage_dir = get_storage_directory(storage_directory)
     file_path = storage_dir / storage_key
     if file_path.is_symlink():
         raise FileNotFoundError
@@ -350,8 +372,16 @@ def get_stored_file_path(storage_key: str, *, must_exist: bool = True) -> Path:
     return resolved_path
 
 
-def stage_stored_file_for_deletion(storage_key: str) -> tuple[Path, Path] | None:
-    file_path = get_stored_file_path(storage_key, must_exist=False)
+def stage_stored_file_for_deletion(
+    storage_key: str,
+    *,
+    storage_directory: Path | None = None,
+) -> tuple[Path, Path] | None:
+    file_path = get_stored_file_path(
+        storage_key,
+        must_exist=False,
+        storage_directory=storage_directory,
+    )
     if not file_path.exists():
         return None
     if not file_path.is_file():

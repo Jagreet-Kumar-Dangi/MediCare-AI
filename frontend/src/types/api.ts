@@ -88,6 +88,143 @@ export interface DoctorDirectoryFilters {
   search?: string
 }
 
+export const doctorCredentialTypes = [
+  'MEDICAL_REGISTRATION_CERTIFICATE',
+  'MEDICAL_DEGREE_CERTIFICATE',
+  'ADDITIONAL_QUALIFICATION_CERTIFICATE',
+] as const
+
+export type DoctorCredentialType = (typeof doctorCredentialTypes)[number]
+
+export type DoctorCredentialStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+export interface DoctorCredential {
+  id: number
+  document_type: DoctorCredentialType
+  original_filename: string
+  mime_type: string
+  file_size: number
+  submitted_at: string
+  verification_status: DoctorCredentialStatus
+  reviewed_at: string | null
+  rejection_reason: string | null
+}
+
+export interface DoctorCredentialListResponse {
+  credentials: DoctorCredential[]
+  required_document_types: DoctorCredentialType[]
+  directory_eligible: boolean
+}
+
+export interface DoctorCredentialReviewAuditEntry {
+  id: number
+  admin_user_id: number
+  action: 'APPROVED' | 'REJECTED'
+  reason: string | null
+  created_at: string
+}
+
+export interface AdminDoctorCredentialDetail extends DoctorCredential {
+  doctor_profile: {
+    id: number
+    full_name: string
+    email: string
+  }
+  reviewed_by: number | null
+  review_events: DoctorCredentialReviewAuditEntry[]
+}
+
+export type AppointmentStatus =
+  | 'BOOKED'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'NO_SHOW'
+
+export type AppointmentAuditAction =
+  | AppointmentStatus
+  | 'RESCHEDULED'
+
+export interface AppointmentAuditEvent {
+  id: number
+  action: AppointmentAuditAction
+  reason: string | null
+  previous_start: string | null
+  previous_end: string | null
+  new_start: string | null
+  new_end: string | null
+  created_at: string
+}
+
+export interface AppointmentDoctorSummary {
+  id: number
+  full_name: string
+}
+
+export interface Appointment {
+  id: number
+  doctor: AppointmentDoctorSummary
+  scheduled_start: string
+  scheduled_end: string
+  status: AppointmentStatus
+  reason_for_visit: string
+  patient_notes: string | null
+  cancellation_reason: string | null
+  rejection_reason: string | null
+  created_at: string
+  updated_at: string
+  audit_events: AppointmentAuditEvent[]
+  patient_name?: string
+  doctor_notes?: string | null
+  patient_id?: number
+  patient_email?: string
+}
+
+export interface DoctorAvailability {
+  id: number
+  weekday: number
+  start_time: string
+  end_time: string
+  break_start: string | null
+  break_end: string | null
+  appointment_duration_minutes: number
+  created_at: string
+  updated_at: string
+}
+
+export interface DoctorAvailabilityPayload {
+  weekday: number
+  start_time: string
+  end_time: string
+  break_start?: string | null
+  break_end?: string | null
+  appointment_duration_minutes: number
+}
+
+export interface AvailabilityException {
+  id: number
+  exception_date: string
+  start_time: string | null
+  end_time: string | null
+  reason: string
+  created_at: string
+}
+
+export interface AvailabilityExceptionPayload {
+  exception_date: string
+  start_time?: string | null
+  end_time?: string | null
+  reason: string
+}
+
+export interface AvailableSlotsResponse {
+  doctor_id: number
+  date: string
+  timezone: string
+  slots: { scheduled_start: string; scheduled_end: string }[]
+}
+
 export interface LoginPayload {
   email: string
   password: string

@@ -19,6 +19,16 @@ const AdminDoctorsPage = lazy(() =>
     default: module.AdminDoctorsPage,
   })),
 )
+const AdminDoctorCredentialsPage = lazy(() =>
+  import('./pages/AdminDoctorCredentialsPage').then((module) => ({
+    default: module.AdminDoctorCredentialsPage,
+  })),
+)
+const AdminAppointmentsPage = lazy(() =>
+  import('./pages/AdminAppointmentsPage').then((module) => ({
+    default: module.AdminAppointmentsPage,
+  })),
+)
 const DoctorDashboardPage = lazy(() =>
   import('./pages/DoctorDashboardPage').then((module) => ({
     default: module.DoctorDashboardPage,
@@ -50,6 +60,11 @@ const LoginPage = lazy(() =>
 const MedicalRecordsPage = lazy(() =>
   import('./pages/MedicalRecordsPage').then((module) => ({
     default: module.MedicalRecordsPage,
+  })),
+)
+const PatientAppointmentsPage = lazy(() =>
+  import('./pages/PatientAppointmentsPage').then((module) => ({
+    default: module.PatientAppointmentsPage,
   })),
 )
 const NotFoundPage = lazy(() =>
@@ -98,6 +113,7 @@ function App() {
                 path="/medical-records"
                 element={<MedicalRecordsPage />}
               />
+              <Route path="/appointments" element={<PatientAppointmentsPage />} />
             </Route>
             <Route
               element={
@@ -116,6 +132,14 @@ function App() {
               }
             >
               <Route path="/admin/doctors" element={<AdminDoctorsPage />} />
+              <Route
+                path="/admin/doctor-credentials"
+                element={<AdminDoctorCredentialsPage />}
+              />
+              <Route
+                path="/admin/appointments"
+                element={<AdminAppointmentsPage />}
+              />
             </Route>
             <Route path="/app" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<NotFoundPage />} />

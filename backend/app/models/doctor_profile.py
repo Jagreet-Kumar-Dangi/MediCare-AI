@@ -19,6 +19,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.appointment import (
+        Appointment,
+        DoctorAvailability,
+        DoctorAvailabilityException,
+    )
+    from app.models.doctor_credential import DoctorCredential
     from app.models.user import User
 
 
@@ -151,6 +157,28 @@ class DoctorProfile(Base):
         back_populates="doctor_profile",
         passive_deletes="all",
         order_by="DoctorVerificationEvent.created_at",
+    )
+    credentials: Mapped[list["DoctorCredential"]] = relationship(
+        back_populates="doctor_profile",
+        passive_deletes="all",
+        order_by="DoctorCredential.submitted_at",
+    )
+    availability_rules: Mapped[list["DoctorAvailability"]] = relationship(
+        back_populates="doctor_profile",
+        cascade="all, delete-orphan",
+        order_by="DoctorAvailability.weekday, DoctorAvailability.start_time",
+    )
+    availability_exceptions: Mapped[list["DoctorAvailabilityException"]] = (
+        relationship(
+            back_populates="doctor_profile",
+            cascade="all, delete-orphan",
+            order_by="DoctorAvailabilityException.exception_date",
+        )
+    )
+    appointments: Mapped[list["Appointment"]] = relationship(
+        back_populates="doctor_profile",
+        passive_deletes="all",
+        order_by="Appointment.scheduled_start",
     )
 
     @property

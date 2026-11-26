@@ -1,8 +1,19 @@
-import { BadgeCheck, Clock3, ShieldAlert, Stethoscope } from 'lucide-react'
+import { BadgeCheck, Clock3, ShieldAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getApiErrorMessage } from '../api/errors'
+import { getMyDoctorCredentials } from '../api/doctorCredentials'
 import { getMyDoctorProfile } from '../api/doctors'
+import { DoctorAppointmentsSection } from '../components/DoctorAppointmentsSection'
+import { DoctorCredentialsSection } from '../components/DoctorCredentialsSection'
 import type { DoctorSelfProfile } from '../types/api'
+
+const configuredCredentialLimit = Number(
+  import.meta.env.VITE_DOCTOR_CREDENTIALS_MAX_UPLOAD_SIZE_MB ?? '10',
+)
+const credentialUploadLimit =
+  Number.isFinite(configuredCredentialLimit) && configuredCredentialLimit > 0
+    ? configuredCredentialLimit
+    : 10
 
 const statusPresentation = {
   PENDING: {
@@ -17,7 +28,7 @@ const statusPresentation = {
     className: 'bg-emerald-50 text-emerald-900',
     icon: BadgeCheck,
     message:
-      'Your professional profile is approved and may appear in the patient doctor directory.',
+      'Your professional profile is approved. Review the credential section below for any remaining requirements before your profile appears in doctor discovery.',
   },
   REJECTED: {
     label: 'Rejected',
@@ -39,6 +50,8 @@ export function DoctorDashboardPage() {
   const [profile, setProfile] = useState<DoctorSelfProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [directoryEligible, setDirectoryEligible] = useState(false)
+  const [eligibilityError, setEligibilityError] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -51,6 +64,20 @@ export function DoctorDashboardPage() {
       })
       .finally(() => {
         if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    void getMyDoctorCredentials()
+      .then((result) => {
+        if (active) setDirectoryEligible(result.directory_eligible)
+      })
+      .catch((requestError: unknown) => {
+        if (active) setEligibilityError(getApiErrorMessage(requestError))
       })
     return () => {
       active = false
@@ -126,11 +153,17 @@ export function DoctorDashboardPage() {
           )}
         </dl>
       </article>
-      <aside className="flex items-start gap-3 rounded-2xl border border-line bg-white p-5 text-sm leading-6 text-ink-600">
-        <Stethoscope aria-hidden="true" className="mt-0.5 shrink-0 text-brand-700" size={18} />
-        Availability management and appointment requests are part of the next
-        implementation subphase.
-      </aside>
+      <DoctorCredentialsSection maxUploadSizeMb={credentialUploadLimit} />
+      {eligibilityError && (
+        <p className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">
+          Could not verify scheduling eligibility: {eligibilityError}
+        </p>
+      )}
+      <DoctorAppointmentsSection
+        canPublishAvailability={
+          profile.verification_status === 'APPROVED' && directoryEligible
+        }
+      />
     </section>
   )
 }

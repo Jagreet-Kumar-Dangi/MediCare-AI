@@ -1,6 +1,14 @@
-import { ClipboardCheck, LayoutDashboard, LogOut, Menu, X } from 'lucide-react'
+import {
+  ClipboardCheck,
+  CalendarClock,
+  FileCheck2,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  X,
+} from 'lucide-react'
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '../api/errors'
 import { useAuth } from '../auth/useAuth'
 import type { UserRole } from '../types/api'
@@ -16,6 +24,16 @@ const staffNavigation = {
   ],
   ADMIN: [
     { label: 'Doctor verification', to: '/admin/doctors', icon: ClipboardCheck },
+    {
+      label: 'Credential verification',
+      to: '/admin/doctor-credentials',
+      icon: FileCheck2,
+    },
+    {
+      label: 'Appointment overview',
+      to: '/admin/appointments',
+      icon: CalendarClock,
+    },
   ],
 } satisfies Record<
   'DOCTOR' | 'ADMIN',
@@ -30,11 +48,19 @@ function homeForRole(role: UserRole): string {
 
 export function StaffLayout({ role }: StaffLayoutProps) {
   const { user, signOut } = useAuth()
+  const location = useLocation()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [logoutError, setLogoutError] = useState<string | null>(null)
   const navigation = staffNavigation[role]
-  const title = role === 'DOCTOR' ? 'Doctor workspace' : 'Doctor verification'
+  const title =
+    role === 'DOCTOR'
+      ? 'Doctor workspace'
+      : location.pathname === '/admin/doctor-credentials'
+        ? 'Credential verification'
+        : location.pathname === '/admin/appointments'
+          ? 'Appointment overview'
+          : 'Doctor verification'
 
   async function handleSignOut() {
     setLogoutError(null)

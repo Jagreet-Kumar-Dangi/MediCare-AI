@@ -13,6 +13,9 @@ from app.models import (
     UserRole,
 )
 from app.schemas.doctor import DoctorSelfProfile, PublicDoctorProfile
+from app.services.doctor_credential_service import (
+    required_credential_eligibility_conditions,
+)
 
 router = APIRouter(prefix="/doctors", tags=["doctors"])
 _require_doctor = require_role(UserRole.DOCTOR)
@@ -46,6 +49,7 @@ def list_approved_doctors(
             DoctorProfile.verification_status
             == DoctorVerificationStatus.APPROVED.value,
             User.is_active.is_(True),
+            *required_credential_eligibility_conditions(),
         )
     )
     if specialization and specialization.strip():
@@ -108,6 +112,7 @@ def get_approved_doctor(
             DoctorProfile.verification_status
             == DoctorVerificationStatus.APPROVED.value,
             User.is_active.is_(True),
+            *required_credential_eligibility_conditions(),
         )
     )
     if profile is None:
