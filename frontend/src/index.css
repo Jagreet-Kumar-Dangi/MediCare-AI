@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Aptos", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --color-ink-950: #102d38;
+  --color-ink-800: #244853;
+  --color-ink-600: #58727b;
+  --color-brand-700: #087c80;
+  --color-brand-600: #0c9296;
+  --color-brand-100: #e2f4f3;
+  --color-sky-50: #f3f9fb;
+  --color-sky-100: #e8f2f6;
+  --color-line: #e3ecef;
+  --color-coral-500: #e98f77;
+  --shadow-panel: 0 20px 60px rgb(20 55 68 / 8%);
+}
+
+:root {
+  font-family: var(--font-sans);
+  color: #17333d;
+  background: #f7fafb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  font-weight: 400;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid rgb(12 146 150 / 35%);
+  outline-offset: 3px;
+}
+
+::selection {
+  color: #102d38;
+  background: #cbe9e8;
+}
+
+.page-enter {
+  animation: page-enter 420ms ease both;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
