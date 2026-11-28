@@ -25,11 +25,31 @@ no administrator accounts, so authenticated PostgreSQL browser verification
 remains outstanding. Analytics do not expose patient medical records,
 credential files, or notification contents.
 
+Phase 8C adds mandatory email OTP verification for public patient and doctor
+registration. Revision `20261128_0008` adds verification state, hashed OTP
+challenges, and hashed email/IP rate-limit events; it is applied to the
+configured PostgreSQL database and passes `alembic check`. Upgrade,
+downgrade, and re-upgrade were exercised; the four existing accounts remained
+intact and the new challenge/rate-limit tables were empty after the check.
+Backend tests passed (77); React typecheck, lint, build, and five tests passed.
+Live disposable patient and doctor flows delivered OTPs to the controlled
+Gmail inbox and updated PostgreSQL verification state. Patient login and
+`/auth/me` succeeded, unverified login was rejected, an incorrect OTP was
+rejected, React resend/verification succeeded, and the doctor remained
+professionally `PENDING`. Disposable records were removed afterward.
+Flutter analysis is clean, six tests pass, and the debug APK builds. After the
+user reported installing the current APK, the Pixel 7 login screen was still
+observed without the verification-recovery control present in source. Live
+Flutter registration, OTP, login, and protected `/me` verification have not
+been completed; the latest emulator capture is the Android launcher setup
+screen rather than the app. Phase 8C live Flutter verification remains
+outstanding.
+
 ## Workspace facts
 
 - Backend: `backend/`, Python 3.13.3, FastAPI, Pydantic Settings, SQLAlchemy 2,
   Alembic, PostgreSQL, PyJWT, and Argon2.
-- Tests use isolated in-memory SQLite databases; they do not depend on a
+- Tests use isolated SQLite databases; they do not depend on a
   PostgreSQL service.
 - Alembic revision `20261126_0003` adds doctor profiles and verification audit
   events. Revision `20261126_0004` adds private doctor credentials and review
@@ -37,11 +57,16 @@ credential files, or notification contents.
   events, and the PostgreSQL GiST overlap constraint. Revision
   `20261126_0006` adds notifications, user preferences, and the email/reminder
   job outbox. Revision `20261127_0007` adds timestamp indexes for reporting
-  aggregations. Do not rewrite earlier migration files.
+  aggregations. Revision `20261128_0008` adds email-verification state and OTP
+  challenges. Do not rewrite earlier migration files.
 - Frontend: `frontend/`, React + TypeScript + Vite, Tailwind CSS, React Router,
   Axios, Lucide, and Recharts.
-- `mobile/`, `ml/`, `infrastructure/`, and `docs/` remain reserved for future
-  work.
+- `mobile/` contains the Flutter patient/doctor application. Phase 8B adds
+  patient profile editing, eligible-doctor discovery, and patient appointment
+  flows. Phase 8C adds email verification; its unit/widget and APK checks pass,
+  but live Pixel 7 authentication verification remains outstanding.
+  Medical-record and admin mobile features are not in scope. `ml/`,
+  `infrastructure/`, and `docs/` remain reserved for future work.
 - Local environment values belong in `backend/.env`, which is ignored by Git.
   Frontend API configuration belongs in the ignored `frontend/.env`. Keep real
   database credentials and JWT signing keys out of tracked files.
@@ -86,6 +111,29 @@ Run frontend commands from `frontend/`:
 - Lint: `npm run lint`
 - Build: `npm run build`
 
+The Flutter app in `mobile/` uses Riverpod, GoRouter, Dio, and Flutter Secure
+Storage. It supports login, patient/doctor registration, role-specific
+dashboards, patient profile editing, eligible-doctor discovery, and patient
+appointment workflows. From `mobile/`:
+
+- Resolve packages: `flutter pub get`
+- Analyze: `flutter analyze`
+- Test: `flutter test`
+- Build Android debug APK: `flutter build apk --debug`
+
+The Android emulator API base URL defaults to `http://10.0.2.2:8000/api/v1`;
+`MEDICARE_API_URL` can override it at build/run time. Verify live mobile
+workflows against the configured PostgreSQL backend and Pixel 7 emulator.
+Appointment booking lifecycle verification requires at least one approved,
+active, credential-eligible doctor with future availability; do not bypass the
+backend's eligibility or scheduling rules to create a test fixture.
+The current debug APK builds successfully, but after a reported installation,
+the Pixel 7 login screen was still observed without the Phase 8C
+verification-recovery control. Do not treat source-level tests or the APK
+build as live Flutter verification; confirm the current app version and
+reopen it from the Android launcher, then complete disposable patient and
+doctor registration/login flows first.
+
 The backend README contains a manual PostgreSQL plus private-upload backup and
 restore procedure. It has not been validated as a production disaster-recovery
 plan; conduct and document a restore drill before deployment.
@@ -97,12 +145,24 @@ plan; conduct and document a restore drill before deployment.
 - Public registration exists only for patients and doctors. Never add public
   administrator registration. Admin accounts require trusted operational
   provisioning.
+- Patient and doctor registration creates inactive, pending accounts and
+  requires a six-digit email OTP before login. OTPs expire after five minutes,
+  allow five incorrect attempts, and can be resent after sixty seconds;
+  database-backed HMAC hashes and email/IP rate limits are used. Existing
+  patient/doctor accounts require verification on their next login. Admin CLI
+  provisioning and login remain unchanged.
+- Verifying a doctor's email never approves professional credentials or the
+  doctor profile; administrator approval and required credential review remain
+  independent gates.
 - Password hashes use Argon2id. Never serialize or log password hashes,
   passwords, signing keys, or bearer tokens.
 - JWT access tokens are signed using a private environment-provided key, have
   required expiry and token identifiers, and use the fixed HS256 algorithm.
 - Logout persists the token identifier in `revoked_tokens`; authenticated
   requests reject revoked tokens.
+- Mobile access tokens are stored in Flutter Secure Storage, are not logged,
+  and are cleared on logout and API `401` responses. Session-restoration
+  network errors preserve the stored token.
 - Patient endpoints require the PATIENT role and query/update only the
   authenticated user's own profile.
 - Doctor registration assigns DOCTOR server-side, creates a doctor profile,
@@ -164,6 +224,13 @@ plan; conduct and document a restore drill before deployment.
   omit visit reasons, notes, medical records, and credential files. Events
   created before SMTP is configured are retained as skipped jobs and are not
   replayed automatically.
+- Registration verification uses Gmail STARTTLS on port 587 and requires
+  `SMTP_HOST=smtp.gmail.com`, `SMTP_USERNAME`, `SMTP_PASSWORD` (Google App
+  Password), `SMTP_FROM_EMAIL`, and `SMTP_USE_TLS=true`. Credentials remain
+  backend-only in the ignored `backend/.env`; never place them in client
+  configuration. Live Gmail delivery and PostgreSQL verification succeeded for
+  disposable patient and doctor accounts through backend/React flows; the
+  Flutter app-device flow remains unverified.
 - Active booking overlaps are rejected transactionally by the PostgreSQL
   exclusion constraint in revision `20261126_0005` (requires `btree_gist`).
   SQLite API tests cover sequential conflicts, not PostgreSQL concurrency.
@@ -208,6 +275,9 @@ plan; conduct and document a restore drill before deployment.
 - `GET /api/v1/health`
 - `POST /api/v1/auth/register/patient`
 - `POST /api/v1/auth/register/doctor`
+- `POST /api/v1/auth/verify-email/send`
+- `POST /api/v1/auth/verify-email/confirm`
+- `POST /api/v1/auth/verify-email/resend`
 - `POST /api/v1/auth/login`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
@@ -273,9 +343,9 @@ plan; conduct and document a restore drill before deployment.
 ## Known follow-up work
 
 Run a concurrent worker-claim check with independent sessions against each
-target PostgreSQL database. Also add rate limiting, account verification and
-recovery workflows, expired-revocation cleanup, deployment secret management,
-a tested backup/restore plan, and an independent operational security review.
-SMTP is optional and has not been validated against a live provider. Local
-SQLite tests and the configured development PostgreSQL checks do not provide
+target PostgreSQL database. Remaining work includes expired-revocation
+cleanup, deployment secret management, a tested backup/restore plan, live
+Flutter verification on Pixel 7 using the current APK, and an independent
+operational security review. Backend/React live verification succeeded, but
+local SQLite tests and development PostgreSQL checks do not provide
 production or regulatory assurance.

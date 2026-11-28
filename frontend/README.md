@@ -34,8 +34,16 @@ backend's `DOCTOR_CREDENTIALS_MAX_UPLOAD_SIZE_MB`.
 ```powershell
 npm run typecheck
 npm run lint
+npm test
 npm run build
 ```
+
+Patient and doctor registration routes to a six-digit email verification
+screen. The code remains only in component memory; it is not persisted to
+browser storage. Verified users must sign in before protected routes are
+available. Existing patient/doctor accounts are prompted to verify on login;
+doctor verification does not replace administrator approval or credential
+review. SMTP credentials remain backend-only.
 
 The app stores access tokens in `sessionStorage` only. It does not implement
 refresh tokens or persist credentials. Route guards use the authenticated

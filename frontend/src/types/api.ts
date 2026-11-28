@@ -398,6 +398,10 @@ export interface LoginPayload {
   password: string
 }
 
+export interface EmailVerificationPayload {
+  email: string
+}
+
 export interface TokenResponse {
   access_token: string
   token_type: 'bearer'

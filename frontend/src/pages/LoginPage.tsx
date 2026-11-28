@@ -1,5 +1,6 @@
 import { LoaderCircle, LockKeyhole } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import axios from 'axios'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '../api/errors'
 import { AuthLayout } from '../components/AuthLayout'
@@ -40,6 +41,7 @@ export function LoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [verificationRequired, setVerificationRequired] = useState(false)
 
   if (status === 'authenticated' && user) {
     return <Navigate to={homeForRole(user.role)} replace />
@@ -48,6 +50,7 @@ export function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
+    setVerificationRequired(false)
     setSubmitting(true)
     try {
       const signedInUser = await signIn({ email: email.trim(), password })
@@ -61,6 +64,10 @@ export function LoginPage() {
       navigate(safePath, { replace: true })
     } catch (requestError) {
       setError(getApiErrorMessage(requestError))
+      setVerificationRequired(
+        axios.isAxiosError(requestError) &&
+          requestError.response?.status === 403,
+      )
     } finally {
       setSubmitting(false)
     }
@@ -90,6 +97,19 @@ export function LoginPage() {
         >
           {error ?? routeState?.message}
         </div>
+      )}
+      {verificationRequired && (
+        <button
+          className="mb-5 w-full rounded-xl border border-brand-200 px-4 py-3 text-sm font-bold text-brand-700 hover:bg-brand-50"
+          onClick={() =>
+            navigate('/verify-email', {
+              state: { email: email.trim(), autoSend: true },
+            })
+          }
+          type="button"
+        >
+          Verify your email address
+        </button>
       )}
       <form className="space-y-5" onSubmit={(event) => void handleSubmit(event)}>
         <FormField

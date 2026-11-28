@@ -11,8 +11,8 @@ workspaces for these features.
 
 - `backend/` — FastAPI, SQLAlchemy, Alembic migrations, and tests.
 - `frontend/` — React + TypeScript patient portal.
-- `mobile/`, `ml/`, `infrastructure/`, `docs/` — reserved areas for future
-  application and platform work.
+- `mobile/` — Flutter patient/doctor authentication and app foundation.
+- `ml/`, `infrastructure/`, `docs/` — reserved areas for future work.
 - `PROJECT_CONTEXT.md` — current architecture, scope, and implementation
   constraints.
 
@@ -53,6 +53,12 @@ npm run dev
 
 The Vite development server uses port 5173, which is allowed by the backend's
 development CORS configuration.
+
+## Mobile quick start
+
+See [mobile/README.md](mobile/README.md). From `mobile/`, run `flutter pub get`
+and `flutter run`. Android emulators use `http://10.0.2.2:8000/api/v1` to reach
+the host's development API at port 8000.
 
 ## Phase scope
 
@@ -98,3 +104,23 @@ the dashboard and CSV exports exclude patient medical records, private
 credential documents, and notification message contents. Analytics access is
 restricted to administrator accounts. See the backend and frontend READMEs for
 endpoint definitions, filters, status calculations, and export behavior.
+
+## Phase 8C email verification status
+
+Patient and doctor registration require a six-digit email OTP delivered by
+backend Gmail SMTP. The additive PostgreSQL migration is
+`20261128_0008`; SMTP credentials belong only in the ignored `backend/.env`.
+The backend and React live flows were verified with disposable accounts and a
+controlled Gmail inbox: patient login and `/auth/me` worked after verification,
+unverified login and an incorrect OTP were rejected, React resend/verification
+worked, and the verified doctor's professional approval remained `PENDING`.
+Disposable test records were cleaned up.
+
+Backend tests passed (77); React typecheck, lint, build, and five tests passed.
+Flutter analysis is clean, six tests pass, and the debug APK builds. Live
+Flutter verification is not complete: after a reported installation, the
+Pixel 7 login screen was still observed without the source's
+verification-recovery link, so no registration, OTP, login, or protected
+`/me` flow has yet been confirmed in the app. The latest emulator capture is
+the Android launcher setup screen. Reopen the current app and complete those
+device flows before declaring Phase 8C complete.

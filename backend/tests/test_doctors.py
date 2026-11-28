@@ -56,6 +56,12 @@ def register_doctor(
     response = client.post("/api/v1/auth/register/doctor", json=payload)
     if response.status_code != 201:
         raise AssertionError(response.text)
+    code = client.app.state.test_verification_codes[email]
+    verified = client.post(
+        "/api/v1/auth/verify-email/confirm",
+        json={"email": email, "code": code},
+    )
+    assert verified.status_code == 200
     login = client.post(
         "/api/v1/auth/login",
         json={"email": email, "password": DOCTOR_REGISTRATION["password"]},

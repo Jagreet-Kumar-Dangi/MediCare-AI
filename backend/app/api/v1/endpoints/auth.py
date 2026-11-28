@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -8,12 +8,17 @@ from app.api.deps import (
 from app.core.config import settings
 from app.core.security import AccessTokenClaims, create_access_token
 from app.db.session import get_db
-from app.models import RevokedToken, User
+from app.models import RevokedToken, User, UserRole
 from app.schemas.auth import (
     DoctorRegistration,
     LoginRequest,
     PatientRegistration,
     TokenResponse,
+)
+from app.schemas.email_verification import (
+    EmailVerificationConfirmation,
+    EmailVerificationRequest,
+    EmailVerificationResponse,
 )
 from app.schemas.user import PublicUser
 from app.services.auth_service import (
@@ -22,6 +27,13 @@ from app.services.auth_service import (
     authenticate_user,
     register_doctor,
     register_patient,
+)
+from app.services.email_verification import (
+    EmailDeliveryError,
+    InvalidVerificationCodeError,
+    VerificationRequestOutcome,
+    request_email_verification,
+    verify_email_address,
 )
 
 router = APIRouter(prefix="/auth")
@@ -34,20 +46,40 @@ router = APIRouter(prefix="/auth")
 )
 def register_patient_account(
     registration: PatientRegistration,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> User:
     try:
-        return register_patient(
+        user = register_patient(
             db,
             email=str(registration.email),
             password=registration.password,
             first_name=registration.first_name,
             last_name=registration.last_name,
         )
+        outcome = request_email_verification(
+            db,
+            email=user.email,
+            ip_address=request.client.host if request.client else "unknown",
+        )
+        if outcome == VerificationRequestOutcome.THROTTLED:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Verification email request limit reached. Try again later.",
+            )
+        return user
     except EmailAlreadyRegisteredError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="An account with this email already exists.",
+        ) from None
+    except EmailDeliveryError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Your account is pending email verification, but the code could "
+                "not be sent. Request a new code before signing in."
+            ),
         ) from None
 
 
@@ -58,10 +90,11 @@ def register_patient_account(
 )
 def register_doctor_account(
     registration: DoctorRegistration,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> User:
     try:
-        return register_doctor(
+        user = register_doctor(
             db,
             email=str(registration.email),
             password=registration.password,
@@ -75,6 +108,17 @@ def register_doctor_account(
             consultation_fee=registration.consultation_fee,
             biography=registration.biography,
         )
+        outcome = request_email_verification(
+            db,
+            email=user.email,
+            ip_address=request.client.host if request.client else "unknown",
+        )
+        if outcome == VerificationRequestOutcome.THROTTLED:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Verification email request limit reached. Try again later.",
+            )
+        return user
     except EmailAlreadyRegisteredError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -85,6 +129,75 @@ def register_doctor_account(
             status_code=status.HTTP_409_CONFLICT,
             detail="A doctor with this medical registration number already exists.",
         ) from None
+    except EmailDeliveryError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Your account is pending email verification, but the code could "
+                "not be sent. Request a new code before signing in."
+            ),
+        ) from None
+
+
+@router.post(
+    "/verify-email/send",
+    response_model=EmailVerificationResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def send_email_verification(
+    payload: EmailVerificationRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> EmailVerificationResponse:
+    try:
+        request_email_verification(
+            db,
+            email=str(payload.email),
+            ip_address=request.client.host if request.client else "unknown",
+        )
+    except EmailDeliveryError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Verification email delivery is unavailable.",
+        ) from None
+    return EmailVerificationResponse(
+        message="If this address can be verified, a code has been sent."
+    )
+
+
+@router.post(
+    "/verify-email/resend",
+    response_model=EmailVerificationResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def resend_email_verification(
+    payload: EmailVerificationRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> EmailVerificationResponse:
+    return send_email_verification(payload, request, db)
+
+
+@router.post(
+    "/verify-email/confirm",
+    response_model=EmailVerificationResponse,
+)
+def confirm_email_verification(
+    payload: EmailVerificationConfirmation,
+    db: Session = Depends(get_db),
+) -> EmailVerificationResponse:
+    try:
+        verify_email_address(
+            db,
+            email=str(payload.email),
+            code=payload.code,
+        )
+    except InvalidVerificationCodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code.",
+        ) from None
+    return EmailVerificationResponse(message="Email verified. You can now sign in.")
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -98,6 +211,17 @@ def login(
         password=credentials.password,
     )
     if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if user.role != UserRole.ADMIN and user.email_verified_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email verification required.",
+        )
+    if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",

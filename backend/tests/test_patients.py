@@ -44,6 +44,11 @@ def test_non_patient_cannot_access_patient_profile(client: TestClient) -> None:
         },
     )
     assert registration.status_code == 201
+    code = client.app.state.test_verification_codes["doctor@example.com"]
+    assert client.post(
+        "/api/v1/auth/verify-email/confirm",
+        json={"email": "doctor@example.com", "code": code},
+    ).status_code == 200
     login = client.post(
         "/api/v1/auth/login",
         json={

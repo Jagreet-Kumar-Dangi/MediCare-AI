@@ -14,6 +14,10 @@ from app.models.doctor_credential import (
     DoctorCredential,
     DoctorCredentialReviewEvent,
 )
+from app.models.email_verification import (
+    EmailVerificationChallenge,
+    EmailVerificationRateLimit,
+)
 from app.models.medical_record import MedicalRecord, MedicalRecordCategory
 from app.models.notification import Notification, NotificationJob, NotificationPreference
 from app.models.patient_profile import PatientProfile
@@ -31,6 +35,8 @@ __all__ = [
     "DoctorVerificationAction",
     "DoctorVerificationEvent",
     "DoctorVerificationStatus",
+    "EmailVerificationChallenge",
+    "EmailVerificationRateLimit",
     "MedicalRecord",
     "MedicalRecordCategory",
     "Notification",

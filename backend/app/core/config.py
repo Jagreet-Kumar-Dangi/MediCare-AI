@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     smtp_username: str | None = None
     smtp_password: SecretStr | None = None
     smtp_from_email: EmailStr | None = None
+    smtp_from_name: str = "MediCare AI"
     smtp_use_tls: bool = True
     smtp_use_ssl: bool = False
     frontend_base_url: AnyHttpUrl | None = None

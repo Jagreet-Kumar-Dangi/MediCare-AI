@@ -44,7 +44,11 @@ def get_current_user(
         )
 
     user = db.scalar(select(User).where(User.id == claims.user_id))
-    if user is None or not user.is_active:
+    if (
+        user is None
+        or not user.is_active
+        or (user.role != UserRole.ADMIN and user.email_verified_at is None)
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired access token.",

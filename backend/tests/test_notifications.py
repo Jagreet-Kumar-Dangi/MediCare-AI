@@ -60,6 +60,12 @@ def _register_verified_doctor(
         },
     )
     assert registration.status_code == 201, registration.text
+    code = client.app.state.test_verification_codes[email]
+    verified = client.post(
+        "/api/v1/auth/verify-email/confirm",
+        json={"email": email, "code": code},
+    )
+    assert verified.status_code == 200
     login = client.post(
         "/api/v1/auth/login",
         json={"email": email, "password": password},
@@ -147,8 +153,11 @@ def test_appointment_events_preferences_and_admin_monitoring(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    from app.services import email_verification
+
     monkeypatch.setattr(settings, "smtp_host", None)
     monkeypatch.setattr(settings, "smtp_from_email", None)
+    monkeypatch.setattr(email_verification, "_smtp_is_ready", lambda: True)
     admin = _create_admin(test_engine)
     doctor = _register_verified_doctor(
         client,

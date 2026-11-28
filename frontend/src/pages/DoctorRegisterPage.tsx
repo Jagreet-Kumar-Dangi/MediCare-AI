@@ -1,6 +1,7 @@
 import { LoaderCircle, Stethoscope } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import axios from 'axios'
 import { getApiErrorMessage } from '../api/errors'
 import { useAuth } from '../auth/useAuth'
 import { AuthLayout } from '../components/AuthLayout'
@@ -70,14 +71,25 @@ export function DoctorRegisterPage() {
         consultation_fee: form.consultation_fee.trim() || null,
         biography: form.biography.trim() || null,
       })
-      navigate('/login', {
+      navigate('/verify-email', {
         replace: true,
-        state: {
-          message:
-            'Your doctor application was submitted for verification. Sign in to view its status.',
-        },
+        state: { email: form.email.trim(), role: 'DOCTOR' },
       })
     } catch (requestError) {
+      if (
+        axios.isAxiosError(requestError) &&
+        [429, 503].includes(requestError.response?.status ?? 0)
+      ) {
+        navigate('/verify-email', {
+          replace: true,
+          state: {
+            email: form.email.trim(),
+            role: 'DOCTOR',
+            initialError: getApiErrorMessage(requestError),
+          },
+        })
+        return
+      }
       setError(getApiErrorMessage(requestError))
     } finally {
       setSubmitting(false)

@@ -59,6 +59,11 @@ const DoctorRegisterPage = lazy(() =>
     default: module.DoctorRegisterPage,
   })),
 )
+const EmailVerificationPage = lazy(() =>
+  import('./pages/EmailVerificationPage').then((module) => ({
+    default: module.EmailVerificationPage,
+  })),
+)
 const LandingPage = lazy(() =>
   import('./pages/LandingPage').then((module) => ({
     default: module.LandingPage,
@@ -113,6 +118,10 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/register/doctor" element={<DoctorRegisterPage />} />
+            <Route
+              path="/verify-email"
+              element={<EmailVerificationPage />}
+            />
             <Route path="/doctors" element={<DoctorDirectoryPage />} />
             <Route path="/doctors/:doctorId" element={<DoctorDetailPage />} />
             <Route

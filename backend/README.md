@@ -55,6 +55,12 @@ aggregates; it does not add tables or alter existing data. The analytics
 service uses the existing transactional tables rather than a separate
 warehouse. To revert only these indexes, downgrade to
 `20261126_0006`; upgrading to `head` recreates them.
+Revision `20261128_0008` adds nullable email verification timestamps,
+pending-registration state, persistent hashed OTP challenges, and hashed
+email/IP rate-limit events. Existing patient and doctor accounts are not
+silently marked verified; they must complete email verification before their
+next login. Admin CLI accounts remain exempt. The migration is additive and
+does not modify doctor approval or credential status.
 The extension is intentionally retained on downgrade. To roll back only the
 notification revision while retaining appointments:
 
@@ -150,6 +156,9 @@ python -m uvicorn app.main:app --reload
 | --- | --- | --- |
 | POST | `/api/v1/auth/register/patient` | Register a patient and create a profile |
 | POST | `/api/v1/auth/register/doctor` | Register a doctor and submit a pending profile |
+| POST | `/api/v1/auth/verify-email/send` | Send a verification code when eligible |
+| POST | `/api/v1/auth/verify-email/confirm` | Confirm a six-digit email code |
+| POST | `/api/v1/auth/verify-email/resend` | Resend a code after cooldown |
 | POST | `/api/v1/auth/login` | Issue a short-lived JWT access token |
 | GET | `/api/v1/auth/me` | Return the authenticated user's public details |
 | POST | `/api/v1/auth/logout` | Revoke the current access token |
@@ -226,6 +235,31 @@ existing Argon2 utility, and creates an `ADMIN` user without exposing a
 credential in shell history. Protect host access and database credentials;
 never expose this operational command as a public API. Protected endpoints use
 `Authorization: Bearer <access_token>`.
+
+New patient and doctor accounts remain inactive until their email is verified.
+The backend sends a six-digit code that expires in five minutes; each code
+allows five incorrect attempts, and resending has a sixty-second cooldown.
+Only a keyed hash is stored. The send/resend responses do not disclose whether
+an address is registered, and requests are limited to five per email and
+twenty per source IP per hour. A successfully verified doctor remains pending
+the existing administrator approval and credential checks.
+
+Configure verification email in the private `backend/.env` only:
+
+```text
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_FROM_EMAIL=
+SMTP_FROM_NAME=MediCare AI
+SMTP_USE_TLS=true
+```
+
+Set `SMTP_USERNAME` and `SMTP_FROM_EMAIL` to the controlled Gmail sender and
+use a Google App Password for `SMTP_PASSWORD`. Keep the credentials out of
+React/Flutter configuration and logs. A missing or failed SMTP setup returns
+a safe delivery error and leaves a new account pending and inactive.
 
 ## Admin analytics (Phase 7)
 
@@ -457,7 +491,7 @@ Run from the `backend` directory:
 python -m pytest
 ```
 
-Tests use a fresh in-memory SQLite database and do not require a running
+Tests use a fresh isolated SQLite database and do not require a running
 PostgreSQL server. They cover authentication, patient records, doctor
 registration, verification permissions/transitions, private credential
 upload/review, appointment availability, booking, ownership, lifecycle
@@ -492,5 +526,6 @@ worker claiming against PostgreSQL before deployment.
   healthcare storage.
 - Use HTTPS, a private high-entropy signing key, least-privilege database
   credentials, and managed secret storage outside local development.
-- Authentication and doctor registration currently have no rate limiting.
-  Add distributed rate limits and abuse monitoring before public deployment.
+- Email verification uses database-backed email/IP throttling and PostgreSQL
+  advisory locks for concurrent requests. Rate limits are per application
+  database and do not replace edge-level abuse controls or monitoring.

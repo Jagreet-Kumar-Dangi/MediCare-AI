@@ -1,6 +1,7 @@
 import { LoaderCircle, UserRoundPlus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import axios from 'axios'
 import { getApiErrorMessage } from '../api/errors'
 import { AuthLayout } from '../components/AuthLayout'
 import { useAuth } from '../auth/useAuth'
@@ -53,11 +54,25 @@ export function RegisterPage() {
         email: email.trim(),
         password,
       })
-      navigate('/login', {
+      navigate('/verify-email', {
         replace: true,
-        state: { message: 'Your patient account is ready. Sign in to continue.' },
+        state: { email: email.trim(), role: 'PATIENT' },
       })
     } catch (requestError) {
+      if (
+        axios.isAxiosError(requestError) &&
+        [429, 503].includes(requestError.response?.status ?? 0)
+      ) {
+        navigate('/verify-email', {
+          replace: true,
+          state: {
+            email: email.trim(),
+            role: 'PATIENT',
+            initialError: getApiErrorMessage(requestError),
+          },
+        })
+        return
+      }
       setError(getApiErrorMessage(requestError))
     } finally {
       setSubmitting(false)

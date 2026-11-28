@@ -2,6 +2,7 @@ import { apiClient } from './client'
 import type {
   LoginPayload,
   DoctorRegistrationPayload,
+  EmailVerificationPayload,
   PatientRegistrationPayload,
   PublicUser,
   TokenResponse,
@@ -30,6 +31,24 @@ export async function registerDoctor(
 export async function login(payload: LoginPayload): Promise<TokenResponse> {
   const response = await apiClient.post<TokenResponse>('/auth/login', payload)
   return response.data
+}
+
+export async function sendVerificationEmail(
+  payload: EmailVerificationPayload,
+): Promise<void> {
+  await apiClient.post('/auth/verify-email/send', payload)
+}
+
+export async function resendVerificationEmail(
+  payload: EmailVerificationPayload,
+): Promise<void> {
+  await apiClient.post('/auth/verify-email/resend', payload)
+}
+
+export async function confirmEmailVerification(
+  payload: EmailVerificationPayload & { code: string },
+): Promise<void> {
+  await apiClient.post('/auth/verify-email/confirm', payload)
 }
 
 export async function getCurrentUser(): Promise<PublicUser> {

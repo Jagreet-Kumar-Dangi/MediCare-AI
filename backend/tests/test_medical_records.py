@@ -102,6 +102,12 @@ def _register_patient(client: TestClient, email: str) -> str:
         },
     )
     assert registration.status_code == 201
+    code = client.app.state.test_verification_codes[email]
+    verification = client.post(
+        "/api/v1/auth/verify-email/confirm",
+        json={"email": email, "code": code},
+    )
+    assert verification.status_code == 200
     login = client.post(
         "/api/v1/auth/login",
         json={
@@ -235,6 +241,11 @@ def test_non_patient_role_cannot_use_medical_record_endpoints(
         },
     )
     assert registration.status_code == 201
+    code = client.app.state.test_verification_codes["doctor@example.com"]
+    assert client.post(
+        "/api/v1/auth/verify-email/confirm",
+        json={"email": "doctor@example.com", "code": code},
+    ).status_code == 200
     login = client.post(
         "/api/v1/auth/login",
         json={

@@ -89,6 +89,8 @@ def _register_user(
         email=normalized_email,
         password_hash=hash_password(password),
         role=role,
+        is_active=False,
+        pending_email_verification=True,
     )
     if role == UserRole.PATIENT:
         if first_name is None or last_name is None:
@@ -131,7 +133,6 @@ def authenticate_user(db: Session, *, email: str, password: str) -> User | None:
     user = db.scalar(select(User).where(User.email == normalized_email))
     if (
         user is None
-        or not user.is_active
         or not verify_password(password, user.password_hash)
     ):
         return None

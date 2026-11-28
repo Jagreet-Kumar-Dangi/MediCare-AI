@@ -40,6 +40,9 @@ def _create_user(
         password_hash=hash_password("analytics-test-password"),
         role=role,
         created_at=created_at,
+        email_verified_at=(
+            None if role == UserRole.ADMIN else created_at
+        ),
     )
     db.add(user)
     db.flush()

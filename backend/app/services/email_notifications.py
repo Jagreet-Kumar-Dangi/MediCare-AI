@@ -2,6 +2,7 @@ import html
 import smtplib
 import ssl
 from dataclasses import dataclass
+from email.utils import formataddr
 from email.message import EmailMessage
 from urllib.parse import urljoin
 
@@ -123,7 +124,7 @@ def send_email(recipient_email: str, rendered: RenderedEmail) -> None:
         raise RuntimeError("SMTP is not configured.")
 
     message = EmailMessage()
-    message["From"] = str(settings.smtp_from_email)
+    message["From"] = formataddr((settings.smtp_from_name, str(settings.smtp_from_email)))
     message["To"] = recipient_email
     message["Subject"] = rendered.subject
     message.set_content(rendered.text)

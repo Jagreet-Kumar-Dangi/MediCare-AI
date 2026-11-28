@@ -54,6 +54,12 @@ def approved_appointment_doctor(
         },
     )
     assert registration.status_code == 201, registration.text
+    code = client.app.state.test_verification_codes[email]
+    verified = client.post(
+        "/api/v1/auth/verify-email/confirm",
+        json={"email": email, "code": code},
+    )
+    assert verified.status_code == 200
     login = client.post(
         "/api/v1/auth/login",
         json={"email": email, "password": DOCTOR_PASSWORD},
@@ -285,6 +291,7 @@ def test_patient_ownership_and_reschedule_cancel_lifecycle(
             email="appointment-other-doctor@example.com",
             password_hash=hash_password("other-doctor-password-2026!"),
             role=UserRole.DOCTOR,
+            email_verified_at=local_now(),
         )
         db.add(other_doctor)
         db.flush()
@@ -322,6 +329,16 @@ def test_patient_ownership_and_reschedule_cancel_lifecycle(
         },
     )
     assert second_patient.status_code == 201
+    second_patient_code = client.app.state.test_verification_codes[
+        "appointment-other-patient@example.com"
+    ]
+    assert client.post(
+        "/api/v1/auth/verify-email/confirm",
+        json={
+            "email": "appointment-other-patient@example.com",
+            "code": second_patient_code,
+        },
+    ).status_code == 200
     second_login = client.post(
         "/api/v1/auth/login",
         json={
